@@ -12,6 +12,10 @@ MAJOR = 1
 MINOR = 0
 REVISION = 9
 
+# Set controlleraddress here
+#CONTROLLER = '138.28.72.140' # Skon Server
+CONTROLLER = '192.168.100.201' # Skon Server
+
 require 'active_support/core_ext/object/blank'
 
 # PiFi State Machine Code
@@ -21,13 +25,13 @@ require 'json'
 require 'logger'
 require 'fileutils'
 
-# Number of retries on message failure from the rXg
+# Number of retries on message failure from the wifictlr
 RXG_RETRIES = 10
 
 # Number of times to attempt to restart a process
 PROC_RESTART_RETRIES = 5
 
-# Pifi current HASHES
+# Wifi current HASHES
 cur_config_hash = "FFFFFFFFFFFFFFF"
 cur_pmk_hash = "FFFFFFFFFFFFFFF"
 
@@ -458,7 +462,7 @@ class State
 end
 
 module MESSAGES
-  HELLO   = '/pifi/hello.json'
+  HELLO   = '/hello'
 end
 
 #################################################################
@@ -912,7 +916,7 @@ end
 # interface - the channel to select for. A scan will be done on this
 #             interface, so the interface MUST BE down (no hostapd running)
 # band - the band to use (G or A)
-# channels - the list of channels the rXg says we can choose from
+# channels - the list of channels the wifictlr says we can choose from
 #
 #######################################################################
 
@@ -976,19 +980,19 @@ end
 
 #################################################################
 #
-# rXg message functions
+# wifictlr message functions
 # These function create message to push to the
-# pifi rXg contoller endpoint
+# pifi wifictlr contoller endpoint
 #
 #################################################################
 
-# send message to rXg. Expect JSON in return.
-def send_rxg_request(rXg,endpoint, postdata)
+# send message to wifictlr. Expect JSON in return.
+def send_rxg_request(wifictlr,endpoint, postdata)
   body = postdata.to_json
 
-  #rXg = "192.168.1.250"
+  #wifictlr = "192.168.1.250"
 
-  url = 'https://'+rXg++'/pifi/' + endpoint
+  url = 'http://'+wifictlr+':3000'+'/api/v1/wificlients/' + endpoint
   #puts "url: #{url}"
   header = { 'Content-Type' => 'application/json' }
 
@@ -1011,7 +1015,7 @@ def send_rxg_request(rXg,endpoint, postdata)
     return response_error
   end
 
-  if (result.code != 200)
+  if (result.code != 200 and result.code != 201)
     response_error[:error] = "HTTParty: non 200 error: #{result.code}"
     return response_error
   end
@@ -1026,8 +1030,8 @@ def send_rxg_request(rXg,endpoint, postdata)
   return result.parsed_response;
 end
 
-# Send a hello message to the rXg
-def send_rxg_hello_mesg(rXg,mac)
+# Send a hello message to the wifictlr
+def send_rxg_hello_mesg(wifictlr,mac)
   wlan=get_max_wlan()
   os=get_os();
 
@@ -1041,35 +1045,33 @@ def send_rxg_hello_mesg(rXg,mac)
   puts "VERSION: #{version_str}"
   body = { mac: mac,
            version: version_str,
-           ap_info: {
-             wlans: wlans,
-             os: os,
-             model: cpu['model'],
-             serial: cpu['serial'],
-           }
+           wlans: wlans,
+           os: os,
+           model: cpu['model'],
+           serial: cpu['serial'],
          }
 
   print "Hello: ", body.to_json,"\n"
-  result = send_rxg_request(rXg, "hello.json", body)
+  result = send_rxg_request(wifictlr, "hello", body)
 
   return result
 end
 
-# Send a config message to the rXg
-def send_rxg_conf_mesg(rXg,mac,conf_hashes,pmk_hash)
+# Send a config message to the wifictlr
+def send_rxg_conf_mesg(wifictlr,mac,conf_hashes,pmk_hash)
   config = { mac: mac,
              config_hashes: conf_hashes,
              pmk_hash: pmk_hash
            }
   print "Config request:", config.to_json,"\n"
 
-  result = send_rxg_request(rXg, "get_config.json", config)
+  result = send_rxg_request(wifictlr, "get_config.json", config)
   print "Config results:",result.to_json,"\n"
   return result
 end
 
-# Send an alivemessage to the rXg
-def send_rxg_alive_mesg(rXg,mac,conf_hashes,pmk_hash,channels,uptime)
+# Send an alivemessage to the wifictlr
+def send_rxg_alive_mesg(wifictlr,mac,conf_hashes,pmk_hash,channels,uptime)
   alive = { mac: mac,
             config_hashes: conf_hashes,
             pmk_hash: pmk_hash,
@@ -1078,13 +1080,13 @@ def send_rxg_alive_mesg(rXg,mac,conf_hashes,pmk_hash,channels,uptime)
           }
   print "Alive  request:", alive.to_json,"\n"
 
-  result = send_rxg_request(rXg,"alive.json", alive)
+  result = send_rxg_request(wifictlr,"alive.json", alive)
   return result
 end
 
-# Send an wireless clients message to the rXg
-def send_rxg_clients_mesg(rXg,clients)
-  result = send_rxg_request(rXg,"update_wireless_clients.json", clients)
+# Send an wireless clients message to the wifictlr
+def send_rxg_clients_mesg(wifictlr,clients)
+  result = send_rxg_request(wifictlr,"update_wireless_clients.json", clients)
   return result
 end
 
@@ -1099,7 +1101,7 @@ end
 
 #################################################################
 #
-# write pmk file - write a pmk list recieved from rXg to a file
+# write pmk file - write a pmk list recieved from wifictlr to a file
 #
 #################################################################
 def write_pmk(hash,pmks)
@@ -1123,7 +1125,7 @@ end
 
 #################################################################
 #
-# write config - write a new hostapd.conf from information from rXg
+# write config - write a new hostapd.conf from information from wifictlr
 # Returns static VLAN number or -1, ssid or "", channel or ""
 #
 #################################################################
@@ -1271,13 +1273,13 @@ end
 
 #################################################################
 #
-# PiFiState Machine
+# WiFiState Machine
 # Main routine for managing pifi AP states for multiple interfaces
 # This process runs forever, managing system states and keeeping
-# the system in regular communication with the rXg
+# the system in regular communication with the wifictlr
 # This process allows the local device to be the active agent
-# in managing a PiFi device, while the rXg is a passive partner
-# responding to PiFi messages
+# in managing a WiFi device, while the wifictlr is a passive partner
+# responding to WiFi messages
 #
 #################################################################
 @should_run = true
@@ -1291,7 +1293,7 @@ def pifi_management
   # kill hostapd, wlanbridge and radius client by name
   `pkill -f hostapd`
   `pkill -f wlanbridge`
-  `pkill -f radius_client.rb`
+  #`pkill -f radius_client.rb`
 
   #sleep to allow system to recover from killing hostapd and wlanbridge.
   sleep(1)
@@ -1311,13 +1313,15 @@ def pifi_management
     hostapd_procs[interface[:wlan]] = Hostapd_instance.new(interface[:wlan])
   end
   wlanbridge_proc = Wlanbridge_instance.new()
-  radiusclient_proc = Radiusclient_instance.new()
+  #radiusclient_proc = Radiusclient_instance.new()
 
-  # Get our local MAC and gateway
-  controller_ip = get_gateway
+  # Get our local MAC and controller address
+  controller_ip = CONTROLLER
+  #controller_ip = get_gateway
+  puts "IP: " + controller_ip
   mac = get_mac_address
 
-  radiusclient_proc.set_params(radius_server: controller_ip)
+  #radiusclient_proc.set_params(radius_server: controller_ip)
 
   # time to wait between polls
   wait = DEFAULT_RATE
@@ -1326,7 +1330,7 @@ def pifi_management
   clear_ap_config()
   clear_pmk_file()
 
-  # State is "START" unless we don't know our gateway (rXg controller)  yet.
+  # State is "START" unless we don't know our gateway (wifictlr controller)  yet.
   if controller_ip.nil?
     state = State.new(STATES::WAITGW)
   else
@@ -1349,7 +1353,7 @@ def pifi_management
   while @should_run
 
     # Sleep until next time unless it is a new state
-    # TODO: A SYNC from rXg needs to end sleep
+    # TODO: A SYNC from wifictlr needs to end sleep
     if not state.is_changed
       #puts "No state change recorded"
       state.sleep()
@@ -1367,15 +1371,15 @@ def pifi_management
     #   Kernel.sleep(sleep_secs)
     # end
 
-    # The PiFi has started, and is saying hello to rXg
+    # The WiFi has started, and is saying hello to wifictlr
     case state.get
 
-    # Wait for the rXg gateway address to be available
-    # In case Pi starts before rXg
+    # Wait for the wifictlr gateway address to be available
+    # In case Pi starts before wifictlr
     when STATES::WAITGW
       1.times do
         puts "WAITGW State"
-        controller_ip = get_gateway
+        controller_ip = CONTROLLER
         if controller_ip.nil?
         # No controller IP yet, wait 10 seconds
           state.set_poll_time(10)
@@ -1402,7 +1406,7 @@ def pifi_management
 
         if result['status'] == 'approved'
           state.update(STATES::CONFIG)
-        elsif result['status'] == 'registered' #registered within RXG but not approved. Stay in START state
+        elsif result['status'] == 'registered' #registered within controller but not approved. Stay in START state
 
         else # unknown response status
           puts "Bad HTTP response #{result}  from #{ controller_ip } "
@@ -1414,9 +1418,9 @@ def pifi_management
         state.set_poll_time(poll_timer)
       end # end of 1.times do
 
-    # The PiFi is asking for a configuration
-    # The PiFi will send the hostapd.conf hashes and the pmk_hash.
-    # The rXg should return all the configs.
+    # The WiFi is asking for a configuration
+    # The WiFi will send the hostapd.conf hashes and the pmk_hash.
+    # The wifictlr should return all the configs.
     # This will only apply the configs if they have changed.
     when STATES::CONFIG
 
@@ -1429,9 +1433,9 @@ def pifi_management
 
         if result.nil?
           response_failures += 1
-          puts "nothing returns from rXg, retries: #{ response_failures }"
+          puts "nothing returns from wifictlr, retries: #{ response_failures }"
           if response_failures > RXG_RETRIES
-            puts "#{ RXG_RETRIES } falures, disabling PiFi"
+            puts "#{ RXG_RETRIES } falures, disabling WiFi"
             state.update(STATES::DISABLING)
             response_failures = 0
           end
@@ -1447,11 +1451,11 @@ def pifi_management
 
 
         # set radius secret
-        if !result["radius_secret"].nil?
+        #if !result["radius_secret"].nil?
 
-          puts "@@@@ Setting Radius Secret: " + result["radius_secret"]
-          radiusclient_proc.set_params(radius_secret: result["radius_secret"])
-        end
+        #  puts "@@@@ Setting Radius Secret: " + result["radius_secret"]
+        #  radiusclient_proc.set_params(radius_secret: result["radius_secret"])
+        #end
 
 
         pmk = result["pmk"]
@@ -1491,7 +1495,7 @@ def pifi_management
                 if config_hashes[wlan] != config_hash
                   interface_change = true
                   static_vid, ssid, chan =write_config(config_hash,ap_config,hostapd_procs)
-                  # Save channel to report to rXg
+                  # Save channel to report to wifictlr
                   @channels[interface] = chan
                   # If static vid in config, use that
                   if static_vid > 0
@@ -1543,9 +1547,9 @@ def pifi_management
         end
 
         # Start Radius Client
-        if !radiusclient_proc.is_running
-          radiusclient_proc.run()
-        end
+        #if !radiusclient_proc.is_running
+        #  radiusclient_proc.run()
+        #end
         @start_time = Time.now
         state.update(STATES::RUN)
 
@@ -1559,11 +1563,11 @@ def pifi_management
         
       end # end of 1.times do
 
-    # The PiFi is in a misconfigured state
+    # The WiFi is in a misconfigured state
     when STATES::HEALTH
       puts "HEALTH State"
 
-    # The PiFi is up and running
+    # The WiFi is up and running
     when STATES::RUN
       1.times do # Loop once, so we can break out if needed.
         puts "RUN State"
@@ -1593,12 +1597,12 @@ def pifi_management
           break
         end
 
-        if not radiusclient_proc.is_running
-          puts "Radius Client has unexpectedly stopped. Restarting."
-          radiusclient_proc.run()
-          proc_restart_failures += 1
-          break
-        end
+        #if not radiusclient_proc.is_running
+        #  puts "Radius Client has unexpectedly stopped. Restarting."
+        #  radiusclient_proc.run()
+        #  proc_restart_failures += 1
+        #  break
+        #end
 
         # Reset counter
         proc_restart_failures = 0
@@ -1620,9 +1624,9 @@ def pifi_management
         puts "Alive result:",result
         if result.nil?
           response_failures += 1
-          puts "nothing returns from rXg, retries: #{ response_failures }"
+          puts "nothing returns from wifictlr, retries: #{ response_failures }"
           if response_failures > RXG_RETRIES
-            puts "#{ RXG_RETRIES } falures, disabling PiFi"
+            puts "#{ RXG_RETRIES } falures, disabling WiFi"
             state.update(STATES::DISABLING)
             response_failures = 0
           end
@@ -1652,9 +1656,9 @@ def pifi_management
         wlanbridge_proc.stop()
       end
 
-      if radiusclient_proc.is_running
-        radiusclient_proc.stop()
-      end
+      #if radiusclient_proc.is_running
+      #  radiusclient_proc.stop()
+      #end
 
       clear_ap_config()
       clear_pmk_file()
@@ -1675,7 +1679,7 @@ def pifi_management
     hostapd_proc.stop()
   end
   wlanbridge_proc.stop()
-  radiusclient_proc.stop()
+  #radiusclient_proc.stop()
 
   #response = Client.get(mesg)
   #puts response
