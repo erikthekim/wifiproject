@@ -13,8 +13,8 @@ MINOR = 0
 REVISION = 9
 
 # Set controlleraddress here
-#CONTROLLER = '138.28.72.140' # Skon Server
-CONTROLLER = '192.168.100.201' # Skon Server
+CONTROLLER = '138.28.72.140' # Skon Server
+#CONTROLLER = '192.168.100.201' # Skon Server
 
 require 'active_support/core_ext/object/blank'
 
@@ -631,7 +631,7 @@ def get_wlan_bands(phy)
         end
       end
       # Finsh up a band
-      bands["band"+band]={:channels=>channels,:freqencies=>freqs,:power=>power,:capabilities=>caps}
+      bands["band"+band]={:channels=>channels,:frequencies=>freqs,:power=>power,:capabilities=>caps}
 
     end
     if i < lines.length() and not lines[i]  =~ /^\s*Band\s(\d):.*/ and not lines[i].include?("Wiphy ")
