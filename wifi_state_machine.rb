@@ -13,8 +13,8 @@ MINOR = 0
 REVISION = 9
 
 # Set controlleraddress here
-CONTROLLER = '138.28.72.140' # Skon Server
-#CONTROLLER = '192.168.100.201' # Skon Server
+#CONTROLLER = '138.28.72.140' # Skon Server
+CONTROLLER = '192.168.100.201' # Skon Server
 
 require 'active_support/core_ext/object/blank'
 
@@ -1027,7 +1027,9 @@ def send_rxg_request(wifictlr,endpoint, postdata)
     return response_error
   end
 
-  return result.parsed_response;
+  r = result=result.parsed_response['json']
+  puts "TEST######: #{r}"
+  return r
 end
 
 # Send a hello message to the wifictlr
