@@ -13,8 +13,8 @@ MINOR = 0
 REVISION = 9
 
 # Set controlleraddress here
-CONTROLLER = '138.28.72.140' # Skon Server
-#CONTROLLER = '192.168.100.201' # Skon Server
+#CONTROLLER = '138.28.72.140' # Skon Server
+CONTROLLER = '192.168.100.201' # Skon Server
 
 require 'active_support/core_ext/object/blank'
 
@@ -26,7 +26,7 @@ require 'logger'
 require 'fileutils'
 
 # Number of retries on message failure from the wifictlr
-RXG_RETRIES = 10
+CLOUD_RETRIES = 10
 
 # Number of times to attempt to restart a process
 PROC_RESTART_RETRIES = 5
@@ -473,7 +473,7 @@ end
 DEFAULT_CONFIG= { country_code: "US",
                   interface: "dummy",
                   driver: "nl80211",
-                  ssid: "rgnetspifi",
+                  ssid: cloudwifi",
                   ignore_broadcast_ssid: 0,
                   ieee80211d: 1,
                   hw_mode: "g",
@@ -486,7 +486,7 @@ DEFAULT_CONFIG= { country_code: "US",
                   wpa_key_mgmt: "WPA-PSK",
                   rsn_pairwise: "CCMP",
                   wpa_pairwise: "CCMP",
-                  wpa_passphrase: "rxgdefault",
+                  wpa_passphrase: "clouddefault",
                   wmm_enabled: 1,
                   wpa_psk_file: "/etc/hostapd/hostapd.wpa_pmk_file"
                   }
@@ -987,7 +987,7 @@ end
 #################################################################
 
 # send message to wifictlr. Expect JSON in return.
-def send_rxg_request(wifictlr,endpoint, postdata)
+def send_cloud_request(wifictlr,endpoint, postdata)
   body = postdata.to_json
 
   #wifictlr = "192.168.1.250"
@@ -1033,7 +1033,7 @@ def send_rxg_request(wifictlr,endpoint, postdata)
 end
 
 # Send a hello message to the wifictlr
-def send_rxg_hello_mesg(wifictlr,mac)
+def send_cloud_hello_mesg(wifictlr,mac)
   wlan=get_max_wlan()
   os=get_os();
 
@@ -1054,26 +1054,26 @@ def send_rxg_hello_mesg(wifictlr,mac)
          }
 
   print "Hello: ", body.to_json,"\n"
-  result = send_rxg_request(wifictlr, "hello", body)
+  result = send_cloud_request(wifictlr, "hello", body)
 
   return result
 end
 
 # Send a config message to the wifictlr
-def send_rxg_conf_mesg(wifictlr,mac,conf_hashes,pmk_hash)
+def send_cloud_conf_mesg(wifictlr,mac,conf_hashes,pmk_hash)
   config = { mac: mac,
              config_hashes: conf_hashes,
              pmk_hash: pmk_hash
            }
   print "Config request:", config.to_json,"\n"
 
-  result = send_rxg_request(wifictlr, "get_config.json", config)
+  result = send_cloud_request(wifictlr, "get_config.json", config)
   print "Config results:",result.to_json,"\n"
   return result
 end
 
 # Send an alivemessage to the wifictlr
-def send_rxg_alive_mesg(wifictlr,mac,conf_hashes,pmk_hash,channels,uptime)
+def send_cloud_alive_mesg(wifictlr,mac,conf_hashes,pmk_hash,channels,uptime)
   alive = { mac: mac,
             config_hashes: conf_hashes,
             pmk_hash: pmk_hash,
@@ -1082,13 +1082,13 @@ def send_rxg_alive_mesg(wifictlr,mac,conf_hashes,pmk_hash,channels,uptime)
           }
   print "Alive  request:", alive.to_json,"\n"
 
-  result = send_rxg_request(wifictlr,"alive.json", alive)
+  result = send_cloud_request(wifictlr,"alive.json", alive)
   return result
 end
 
 # Send an wireless clients message to the wifictlr
-def send_rxg_clients_mesg(wifictlr,clients)
-  result = send_rxg_request(wifictlr,"update_wireless_clients.json", clients)
+def send_cloud_clients_mesg(wifictlr,clients)
+  result = send_cloud_request(wifictlr,"update_wireless_clients.json", clients)
   return result
 end
 
@@ -1398,7 +1398,7 @@ def pifi_management
         @start_time = 0
         proc_restart_failures = 0
 
-        result = send_rxg_hello_mesg(controller_ip,mac)
+        result = send_cloud_hello_mesg(controller_ip,mac)
         puts "Reply:",result
 
         if result.nil? then break end
@@ -1430,14 +1430,14 @@ def pifi_management
         puts "CONFIG state"
         @start_time = 0
         static_vids = {}
-        result = send_rxg_conf_mesg(controller_ip,mac,config_hashes,pmk_hash)
+        result = send_cloud_conf_mesg(controller_ip,mac,config_hashes,pmk_hash)
         wait = process_wait_time(wait, result)
 
         if result.nil?
           response_failures += 1
           puts "nothing returns from wifictlr, retries: #{ response_failures }"
-          if response_failures > RXG_RETRIES
-            puts "#{ RXG_RETRIES } falures, disabling WiFi"
+          if response_failures > CLOUD_RETRIES
+            puts "#{ CLOUD_RETRIES } falures, disabling WiFi"
             state.update(STATES::DISABLING)
             response_failures = 0
           end
@@ -1616,19 +1616,19 @@ def pifi_management
           @station_report = {"AP" => mac, "Stations" => @stations}
           puts "####################### Stations ###########################"
           puts @station_report.to_json
-          result = send_rxg_clients_mesg(controller_ip,@station_report)
+          result = send_cloud_clients_mesg(controller_ip,@station_report)
           puts "Send stations result: #{ result }"
           @next_station_scan = Time.now + STATION_SCAN_TIME
         end
 
         @uptime = Time.now - @start_time
-        result = send_rxg_alive_mesg(controller_ip,mac,config_hashes,pmk_hash,@channels,@uptime)
+        result = send_cloud_alive_mesg(controller_ip,mac,config_hashes,pmk_hash,@channels,@uptime)
         puts "Alive result:",result
         if result.nil?
           response_failures += 1
           puts "nothing returns from wifictlr, retries: #{ response_failures }"
-          if response_failures > RXG_RETRIES
-            puts "#{ RXG_RETRIES } falures, disabling WiFi"
+          if response_failures > CLOUD_RETRIES
+            puts "#{ CLOUD_RETRIES } falures, disabling WiFi"
             state.update(STATES::DISABLING)
             response_failures = 0
           end
