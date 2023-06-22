@@ -13,8 +13,8 @@ MINOR = 0
 REVISION = 9
 
 # Set controlleraddress here
-#CONTROLLER = '138.28.72.140' # Skon Server
-CONTROLLER = '192.168.100.201' # Skon Server
+CONTROLLER = '138.28.72.140' # Skon Server
+#CONTROLLER = '192.168.100.201' # Skon Server
 
 require 'active_support/core_ext/object/blank'
 
@@ -473,7 +473,7 @@ end
 DEFAULT_CONFIG= { country_code: "US",
                   interface: "dummy",
                   driver: "nl80211",
-                  ssid: cloudwifi",
+                  ssid: "cloudwifi",
                   ignore_broadcast_ssid: 0,
                   ieee80211d: 1,
                   hw_mode: "g",
