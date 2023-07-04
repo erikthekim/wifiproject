@@ -1,5 +1,4 @@
 #!/usr/bin/ruby
-require 'set'
 require 'ipaddr'
 #########################################################################################
 # Bugs to address / think about
@@ -13,17 +12,18 @@ MINOR = 0
 REVISION = 9
 
 # Set controlleraddress here
-CONTROLLER = '138.28.72.140' # Skon Server
-#CONTROLLER = '192.168.100.201' # Skon Server
+#CONTROLLER = '138.28.72.140' # Skon Server
+CONTROLLER = '192.168.100.201' # Skon Server
 
 require 'active_support/core_ext/object/blank'
 
-# PiFi State Machine Code
+# Wifi State Machine Code
 require 'rubygems'
 require 'httparty'
 require 'json'
 require 'logger'
 require 'fileutils'
+require 'set'
 
 # Number of retries on message failure from the wifictlr
 CLOUD_RETRIES = 10
@@ -32,17 +32,17 @@ CLOUD_RETRIES = 10
 PROC_RESTART_RETRIES = 5
 
 # Wifi current HASHES
-cur_config_hash = "FFFFFFFFFFFFFFF"
-cur_pmk_hash = "FFFFFFFFFFFFFFF"
+#cur_config_hash = "FFFFFFFFFFFFFFF"
+#cur_pmk_hash = "FFFFFFFFFFFFFFF"
 
-# PiFI current connection states
+# Wifi current connection states
 @connection_states = {}
 
 # PMK file uname
-PMK_FILE = "/etc/hostapd/hostapd.wpa_pmk_file"
+PMK_FILE = "/tmp/hostapd.wpa_pmk_file"
 
 # hostapd.conf
-HOSTAPD_FILE = "/etc/hostapd/hostapd.conf"
+HOSTAPD_FILE = "/tmp/hostapd.conf"
 
 #################################################################
 # puts and print overrides to redirect to logging engine.
@@ -117,7 +117,7 @@ end
 class Hostapd_instance
   def initialize(wlan)
     @pid = 0
-    @conf_file = "/etc/hostapd/hostapd."+wlan+".conf"
+    @conf_file = "/tmp/hostapd."+wlan+".conf"
     @wlan = wlan
     @state = WLAN_STATES::OFF
     @thread = nil
@@ -129,7 +129,7 @@ class Hostapd_instance
       return false
     end
     print "PID " + @pid.to_s + " "
-    cmd = "kill -0 " + @pid.to_s
+    cmd = "sudo kill -0 " + @pid.to_s
     result = `#{cmd}`
     if $?.success?
       print  @wlan," hostapd running","\n"
@@ -165,12 +165,13 @@ class Hostapd_instance
     # See if running
     if self.is_running
       print  @wlan,"hostapd HUP the process","\n"
-      cmd = "kill -HUP " + @pid.to_s
+      cmd = "sudo kill -HUP " + @pid.to_s
       `#{ cmd }`
     else
       print "Start the HOSTAPD process for ",@wlan,"\n"
 
-      cmd = "/usr/sbin/hostapd -f /var/log/pifi/hostapd.#{@wlan}.log #{@conf_file}"
+      cmd = "sudo /usr/sbin/hostapd -f /tmp/hostapd.#{@wlan}.log #{@conf_file}"
+      puts "Start HOSTAPD: #{cmd}"
       @pid = Process.spawn(cmd)
       Process.detach(@pid)
 
@@ -182,14 +183,14 @@ class Hostapd_instance
   def stop()
     if @pid > 0 and is_running
       print "Stopping hostapd for ",@wlan," pid: " ,@pid,".\n"
-      cmd = "kill -9 " + @pid.to_s
+      cmd = "sudo kill -9 " + @pid.to_s
       `#{ cmd }`
       @pid = 0
 
       #also we need to down wlan or else SSID is still broadcast
-      cmd = "ifconfig #{@wlan} down"
+      cmd = "sudo ifconfig #{@wlan} down"
       `#{ cmd }`
-      cmd = "ifconfig #{@wlan} up"
+      cmd = "sudo ifconfig #{@wlan} up"
       `#{ cmd }`
       
 
@@ -220,7 +221,7 @@ class Wlanbridge_instance
       return false
     end
     print "Bridge PID " + @pid.to_s + " "
-    cmd = "kill -0 " + @pid.to_s
+    cmd = "sudo kill -0 " + @pid.to_s
     result = `#{cmd}`
     if $?.success?
       #puts "Running"
@@ -236,7 +237,7 @@ class Wlanbridge_instance
     @wlans = wlans
 
     puts "Start the wlanbridge process"
-    cmd = '/opt/wlanbridge/bridge eth0 '
+    cmd = 'sudo /opt/wlanbridge/bridge eth0 '
     wlans.each do | wlan |
       if static_vids.key?(wlan)
         puts "static_vids[wlan]: "+ static_vids[wlan].inspect
@@ -247,7 +248,7 @@ class Wlanbridge_instance
       end
     end
 
-    cmd = cmd + " -f /var/log/pifi/wlanbridge.log"
+    cmd = cmd + " -f /tmp/wlanbridge.log"
     puts cmd
 
     @pid = Process.spawn(cmd)
@@ -260,7 +261,7 @@ class Wlanbridge_instance
   def stop()
     if @pid > 0 and is_running
       print "Stopping wlanbridge: ",@pid," on ",@wlan,"\n"
-      cmd = "kill -9 " + @pid.to_s
+      cmd = "sudo kill -9 " + @pid.to_s
       `#{ cmd }`
       @pid = 0
     end
@@ -377,7 +378,7 @@ class Radiusclient_instance
   def stop()
     if @pid > 0 and is_running
       puts "Stopping radius client: #{@pid}."
-      cmd = "kill -9 " + @pid.to_s
+      cmd = "sudo kill -9 " + @pid.to_s
       `#{ cmd }`
       @pid = 0
     end
@@ -488,7 +489,9 @@ DEFAULT_CONFIG= { country_code: "US",
                   wpa_pairwise: "CCMP",
                   wpa_passphrase: "clouddefault",
                   wmm_enabled: 1,
-                  wpa_psk_file: "/etc/hostapd/hostapd.wpa_pmk_file"
+                  ctrl_interface: "/var/run/hostapd",
+                  ctrl_interface_group: 0,
+                  wpa_psk_file: "/tmp/hostapd.wpa_pmk_file"
                   }
 
 
@@ -843,11 +846,12 @@ end
 #######################################################################
 def scan_for_aps (interface)
     # First let's make sure the interface is up
-    cmd = "ifconfig #{interface} up"
+    cmd = "sudo ifconfig #{interface} up"
     print "Bringing up interface: #{ cmd }\n"
     `#{ cmd }`
-
-    @ap_list = `iw dev #{interface} scan`
+    puts "After bringing interface up..."
+    
+    @ap_list = `sudo iw dev #{interface} scan`
     @lines = @ap_list.split("\n")
     @ap_data = {}
     @address = ""
@@ -921,6 +925,10 @@ end
 #######################################################################
 
 def select_channel(interface,channels,channel)
+  if channels.is_a? String 
+    channels = channels.split(',')
+  end
+
   # Check for corner cases
   if channels.length() == 0
     return channel
@@ -986,14 +994,14 @@ end
 #
 #################################################################
 
-# send message to wifictlr. Expect JSON in return.
+# post message to wifictlr. Expect JSON in return.
 def send_cloud_request(wifictlr,endpoint, postdata)
   body = postdata.to_json
 
   #wifictlr = "192.168.1.250"
 
-  url = 'http://'+wifictlr+':3000'+'/api/v1/wificlients/' + endpoint
-  #puts "url: #{url}"
+  url = 'http://'+wifictlr+':3000'+'/api/v1/' + endpoint
+  puts "url: #{url}"
   header = { 'Content-Type' => 'application/json' }
 
   response_error = {
@@ -1028,7 +1036,53 @@ def send_cloud_request(wifictlr,endpoint, postdata)
   end
 
   r = result=result.parsed_response['json']
-  puts "TEST######: #{r}"
+  puts "send_cloud_request result######: #{r}"
+  return r
+end
+
+# get message to wifictlr. Expect JSON in return.
+def get_cloud_request(wifictlr,endpoint, postdata)
+  body = postdata.to_json
+
+  #wifictlr = "192.168.1.250"
+
+  url = 'http://'+wifictlr+':3000'+'/api/v1/' + endpoint
+  puts "url: #{url}"
+  header = { 'Content-Type' => 'application/json' }
+
+  response_error = {
+    status:   "httperror",
+    error:    nil
+  }
+
+  begin
+    result = Client.get(url,
+                         body: body,
+                         headers: header,
+                         timeout: 5         #timeout is in seconds
+                        )
+  rescue HTTParty::Error, SocketError => e
+    response_error[:error] = "HTTParty::Error: #{ e.messages} "
+    return response_error
+  rescue StandardError => error
+    response_error[:error] = "HTTParty::Error: #{error}"
+    return response_error
+  end
+
+  if (result.code != 200 and result.code != 201)
+    response_error[:error] = "HTTParty: non 200 error: #{result.code}"
+    return response_error
+  end
+
+  begin
+    result.parsed_response
+  rescue JSON::ParserError => e
+    response_error[:error] = "JSON::Error: #{ e.messages} "
+    return response_error
+  end
+
+  r = result=result.parsed_response['json']
+  puts "send_cloud_request result######: #{r}"
   return r
 end
 
@@ -1037,7 +1091,7 @@ def send_cloud_hello_mesg(wifictlr,mac)
   wlan=get_max_wlan()
   os=get_os();
 
-  piglet_version = get_piglet_version()
+  #piglet_version = get_piglet_version()
 
   cpu=get_cpu_info
   # get radio info
@@ -1054,29 +1108,30 @@ def send_cloud_hello_mesg(wifictlr,mac)
          }
 
   print "Hello: ", body.to_json,"\n"
-  result = send_cloud_request(wifictlr, "hello", body)
+  result = send_cloud_request(wifictlr, "wificlients/hello", body)
 
   return result
 end
 
 # Send a config message to the wifictlr
-def send_cloud_conf_mesg(wifictlr,mac,conf_hashes,pmk_hash)
-  config = { mac: mac,
-             config_hashes: conf_hashes,
-             pmk_hash: pmk_hash
+def send_cloud_conf_mesg(wifictlr,mac)
+  config = { mac: mac
+             #config_hashes: conf_hashes,
+             #pmk_hash: pmk_hash
            }
   print "Config request:", config.to_json,"\n"
 
-  result = send_cloud_request(wifictlr, "get_config.json", config)
+#  result = send_cloud_request(wifictlr, "get_config.json", config)
+  result = send_cloud_request(wifictlr, "jsontests/1", config)
   print "Config results:",result.to_json,"\n"
   return result
 end
 
 # Send an alivemessage to the wifictlr
-def send_cloud_alive_mesg(wifictlr,mac,conf_hashes,pmk_hash,channels,uptime)
+def send_cloud_alive_mesg(wifictlr,mac,channels,uptime)
   alive = { mac: mac,
-            config_hashes: conf_hashes,
-            pmk_hash: pmk_hash,
+            #config_hashes: conf_hashes,
+            #pmk_hash: pmk_hash,
             channels: channels,
             uptime: uptime
           }
@@ -1106,15 +1161,17 @@ end
 # write pmk file - write a pmk list recieved from wifictlr to a file
 #
 #################################################################
-def write_pmk(hash,pmks)
+def write_pmk(pmks)
   #puts "PMK:",hash,pmks
   # Write out the new file
   File.open(PMK_FILE,"w") { |f|
-    f.write("# Hash: "+hash+"\n")
+    #f.write("# Hash: "+hash+"\n")
     f.write("# Warning - This file is auto generated.  Do not modify\n")
     pmks.each do |pmk_entry|
-      if pmk_entry.key?("login") and pmk_entry.key?("vlanid") and pmk_entry.key?("pmk")
-        f.write("login="+pmk_entry["login"]+" vlanid="+pmk_entry["vlanid"].to_s+" pmk="+pmk_entry["pmk"]+"\n")
+      if pmk_entry.key?("user") and pmk_entry.key?("pmk")
+        f.write(" pmk="+pmk_entry["pmk"]+"\n")
+      elsif pmk_entry.key?("user") and pmk_entry.key?("vlanid") and pmk_entry.key?("pmk")
+        f.write(" vlanid="+pmk_entry["vlanid"].to_s+" pmk="+pmk_entry["pmk"]+"\n")
       elsif pmk_entry.key?("vlanid") and pmk_entry.key?("pmk") # No Login/account association (Normal for PSK WLAN)
         f.write("vlanid="+pmk_entry["vlanid"].to_s+" pmk="+pmk_entry["pmk"]+"\n")
       else
@@ -1131,7 +1188,7 @@ end
 # Returns static VLAN number or -1, ssid or "", channel or ""
 #
 #################################################################
-def write_config(hash,config,hostapd_procs)
+def write_config(config,hostapd_procs)
   print "Configuration sent: ",config,"\n"
   @chan_list = []
   @auto_channel = 0
@@ -1226,11 +1283,11 @@ def write_config(hash,config,hostapd_procs)
 
   print "New Config",new_config,"\n"
   # Write out the new file
-  config_file = "/etc/hostapd/hostapd."+new_config[:interface]+".conf"
+  config_file = "/tmp/hostapd."+new_config[:interface]+".conf"
   File.open(config_file,"w") { |f|
-    f.write("# Hash: "+hash+"\n")
+    #f.write("# Hash: "+hash+"\n")
     f.write("# Warning - This file is auto generated.  Do not modify\n")
-    f.write("ctrl_interface=/var/run/hostapd\n")
+    f.write("ctrl_interface=/tmp/hostapd\n")
     new_config.each do |key,value|
       if not value.nil?
         f.write(key.to_s+"="+value.to_s+"\n")
@@ -1241,13 +1298,13 @@ def write_config(hash,config,hostapd_procs)
 
 end
 
-# Delete /etc/hostapd/hostap.conf/
+# Delete /tmp/hostap.conf/
 # These won't be needed once we put file in ram dick
 # TODO
 def clear_ap_config
 end
 
-# delete /etc/hostapd.wpa_pmk_file
+# delete /tmp/hostapd.wpa_pmk_file
 # TODO
 def clear_pmk_file
 end
@@ -1293,16 +1350,16 @@ def pifi_management
   # stores the time the AP started, 0 means not started
   @start_time = 0
   # kill hostapd, wlanbridge and radius client by name
-  `pkill -f hostapd`
-  `pkill -f wlanbridge`
-  #`pkill -f radius_client.rb`
+  `sudo pkill -f hostapd`
+  `sudo pkill -f wlanbridge`
+  #`sudo pkill -f radius_client.rb`
 
   #sleep to allow system to recover from killing hostapd and wlanbridge.
   sleep(1)
 
   # The latest config and pmk hash
-  config_hashes = Hash.new
-  pmk_hash = "FFFFFFFFFFFF"
+  #config_hashes = Hash.new
+  #pmk_hash = "FFFFFFFFFFFF"
   pmk_file = nil
   new_pmk = false
 
@@ -1406,7 +1463,8 @@ def pifi_management
         wait = process_wait_time(wait,result)
 
 
-        if result['status'] == 'approved'
+#        if result['status'] == 'approved'
+        if result['status'] == 'approved' or result['status'] == 'registered'
           state.update(STATES::CONFIG)
         elsif result['status'] == 'registered' #registered within controller but not approved. Stay in START state
 
@@ -1430,7 +1488,7 @@ def pifi_management
         puts "CONFIG state"
         @start_time = 0
         static_vids = {}
-        result = send_cloud_conf_mesg(controller_ip,mac,config_hashes,pmk_hash)
+        result = send_cloud_conf_mesg(controller_ip,mac)
         wait = process_wait_time(wait, result)
 
         if result.nil?
@@ -1463,10 +1521,11 @@ def pifi_management
         pmk = result["pmk"]
 
         new_pmk = false
-        # optionally write a new pmk file
-        if ((not pmk.nil?) and (pmk_hash != result["pmk_hash"]))
-          pmk_hash = result["pmk_hash"]
-          write_pmk(pmk_hash,pmk)
+        # optionally write a new pmkile
+#        if ((not pmk.nil?) and (pmk_hash != result["pmk_hash"]))
+        if (not pmk.nil?)
+          #pmk_hash = result["pmk_hash"]
+          write_pmk(pmk)
           new_pmk = true
           puts "*** New PMK File"
         end
@@ -1485,7 +1544,7 @@ def pifi_management
           device=devices.select{|x| x["wlan"] == interface}.first
           if not device.nil?
             if not device["wlan"].nil? and not device["config"].nil?
-              config_hash = device["config_hash"]
+              #config_hash = device["config_hash"]
               wlan = device["wlan"]
               mode = device["config"]["mode"]
               config = device["config"]
@@ -1494,28 +1553,28 @@ def pifi_management
                 print "FOUND AP:",wlan,"\n"
                 ap_config=config["hostapd"]
                 active_interfaces.push(wlan)
-                if config_hashes[wlan] != config_hash
-                  interface_change = true
-                  static_vid, ssid, chan =write_config(config_hash,ap_config,hostapd_procs)
-                  # Save channel to report to wifictlr
-                  @channels[interface] = chan
-                  # If static vid in config, use that
-                  if static_vid > 0
-                    static_vids[wlan] = {static_vid: static_vid, ssid: ssid}
-                    puts "VIDS[#{ssid}]:",static_vids
-                  end
-                  config_hashes[wlan] = config_hash
-                  print "*** New Config for ",wlan,"\n"
-                  if hostapd_proc.is_running
-                    hostapd_proc.stop()
-                  end
-                  sleep(2)
-                  #hostapd_proc.run_or_hup(WLAN_STATES::AP)
-                  hostapd_proc.set_to_start
-                elsif new_pmk
+                #if config_hashes[wlan] != config_hash
+                interface_change = true
+                static_vid, ssid, chan =write_config(ap_config,hostapd_procs)
+                # Save channel to report to wifictlr
+                @channels[interface] = chan
+                # If static vid in config, use that
+                if static_vid > 0
+                  static_vids[wlan] = {static_vid: static_vid, ssid: ssid}
+                  puts "VIDS[#{ssid}]:",static_vids
+                 end
+                #config_hashes[wlan] = config_hash
+                print "*** New Config for ",wlan,"\n"
+                if hostapd_proc.is_running
+                  hostapd_proc.stop()
+                end
+                sleep(2)
+                #hostapd_proc.run_or_hup(WLAN_STATES::AP)
+                hostapd_proc.set_to_start
+                if new_pmk
                   # If the pmks change, we must reload
                   puts "reloading pmks for #{ wlan }"
-                  cmd = "hostapd_cli -i #{ wlan } reload_wpa_psk"
+                  cmd = "sudo hostapd_cli -i #{ wlan } reload_wpa_psk"
                   result = `#{cmd}`.chomp
                   if result != "OK"
                     puts "Reload pmks failed, restarting hostapd for #{ wlan }"
@@ -1526,13 +1585,12 @@ def pifi_management
                   print "Not a NEW Config for ",wlan,"\n"
                 end
               elsif mode == "OFF"
-                if config_hashes[wlan] != config_hash
-                  config_hashes[wlan] = config_hash
-                  print "Stop: ",interface,"\n"
-                  interface_change = true
-                  if hostapd_proc.is_running
-                    hostapd_proc.stop()
-                  end
+                #if config_hashes[wlan] != config_hash
+                #  config_hashes[wlan] = config_hash
+                print "Stop: ",interface,"\n"
+                interface_change = true
+                if hostapd_proc.is_running
+                  hostapd_proc.stop()
                 end
               else
                 print "Unknown radio mode: ",mode,"\n"
@@ -1622,7 +1680,7 @@ def pifi_management
         end
 
         @uptime = Time.now - @start_time
-        result = send_cloud_alive_mesg(controller_ip,mac,config_hashes,pmk_hash,@channels,@uptime)
+        result = send_cloud_alive_mesg(controller_ip,mac,@channels,@uptime)
         puts "Alive result:",result
         if result.nil?
           response_failures += 1
@@ -1666,8 +1724,8 @@ def pifi_management
       clear_pmk_file()
 
       # Invalidate config/PMK hashes
-      config_hash = "FFFFFFFFFFFF"
-      pmk_hash = "FFFFFFFFFFFF"
+      #config_hash = "FFFFFFFFFFFF"
+      #pmk_hash = "FFFFFFFFFFFF"
 
       #set back to 30 seconds and force pause
       state.set_poll_time(30)
@@ -1712,7 +1770,7 @@ trap("INT") {
 }
 
 # Enable Logging
-logging_directory = '/var/log/pifi'
+logging_directory = '/tmp'
 FileUtils.mkdir_p logging_directory
 # creates up to 10, 10 MB log files
 $logger = Logger.new(logging_directory + "/pifi.log", 10, 10 * 1024 * 1024)

@@ -1,11 +1,11 @@
 # SSID: cloudwifi
 # kenyontest
-keyid=kenyon pmk=ro3Gz0cVSQ8aWSjWGo9ADxCP5Rvxort6VC2dT4DrmXw=
+vlanid=0 pmk=ro3Gz0cVSQ8aWSjWGo9ADxCP5Rvxort6VC2dT4DrmXw=
 # jimskon
 keyid=jimskon pmk=KANjvvjIlmLYBXuWfh3wdW9kSutZVhkeSXKYtNeUBt0=
 # kellydecastro
-keyid=kelly pmk=R5vir0oRxiDTOpLpcgC6FsO8pELuQSeYMbjlFFFXbCE=
+keyid=kellydecastro pmk=R5vir0oRxiDTOpLpcgC6FsO8pELuQSeYMbjlFFFXbCE=
 # michelle
-keyid=Michelle pmk=pNLpcDdBuhz5lyDRL2dy4RFztk/N9U2SWiPy6C/2UPw=
+keyid=michelle pmk=pNLpcDdBuhz5lyDRL2dy4RFztk/N9U2SWiPy6C/2UPw=
 # irina1234
-keyid=irina pmk=otZxDd2cqlO+AtYUqaYTYBO2tSwTVExu/913b37rvwg=
+keyid=irina1234 pmk=otZxDd2cqlO+AtYUqaYTYBO2tSwTVExu/913b37rvwg=
