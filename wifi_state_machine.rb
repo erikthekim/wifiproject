@@ -44,6 +44,8 @@ PMK_FILE = "/tmp/hostapd.wpa_pmk_file"
 # hostapd.conf
 HOSTAPD_FILE = "/tmp/hostapd.conf"
 
+# map pmk to user names
+@pmk_to_user = Hash.new
 #################################################################
 # puts and print overrides to redirect to logging engine.
 #################################################################
@@ -758,13 +760,13 @@ def gather_station_info(interface_channels,connection_states,hostapd_procs)
 
   # Get the current connection states from the connetion log
   update_connections(connection_states)
-  #puts "CONNECTIONS:"+connection_states.to_s
+  puts "CONNECTIONS:"+connection_states.to_s
 
   @all_stations = {}
   interface_channels.each { | wlan, channel |
     #get the stations for a given wlan
     @stations = get_stations(wlan,channel)
-
+    puts "STATIONS! #{@stations}"
     # Merge results with latest connection state
     @stations.each { | mac, station |
       station_state = connection_states[mac]
@@ -774,6 +776,9 @@ def gather_station_info(interface_channels,connection_states,hostapd_procs)
         @stations[mac] = @stations[mac].merge(station_state)
       end
       @stations[mac]["ssid"] = hostapd_procs[@stations[mac]["interface"]].ssid
+      puts " @pmk_to_user #{ @pmk_to_user}"
+      puts "USER: #{@pmk_to_user[@stations[mac]["pmk"]]}"
+      @stations[mac]["user"] = @pmk_to_user[ @stations[mac]["pmk"]]
     }
 
     @all_stations = @all_stations.merge(@stations)
@@ -799,11 +804,12 @@ end
 #######################################################################
 # read connections log and clear it
 #######################################################################
-CONNECTION_LOG = "/tmp/connections.json"
+CONNECTION_LOG = "/tmp/connections.log"
 
 def update_connections(connections)
   begin
     File.open(CONNECTION_LOG).each do |line|
+      puts "CONNECTIONS: #{line}"
       connection = JSON.parse(line)
       if connection.key? "mac"
         mac = connection["mac"].downcase
@@ -811,10 +817,12 @@ def update_connections(connections)
       end
     end
     # Clear the file
-    File.open(CONNECTION_LOG,'w') {|file| file.truncate(0) }
+    puts "CLEAR FILE"
+    `sudo rm #{CONNECTION_LOG}`
+    #File.open(CONNECTION_LOG,'w') {|file| file.truncate(0) }
 
   rescue
-    puts "ERROR is processing connections.json file"
+    puts "ERROR in processing connections.log file"
     # nothing else to do here
   end
 end
@@ -1122,7 +1130,7 @@ def send_cloud_conf_mesg(wifictlr,mac)
   print "Config request:", config.to_json,"\n"
 
 #  result = send_cloud_request(wifictlr, "get_config.json", config)
-  result = send_cloud_request(wifictlr, "jsontests/1", config)
+  result = send_cloud_request(wifictlr, "jsontests/2", config)
   print "Config results:",result.to_json,"\n"
   return result
 end
@@ -1162,7 +1170,7 @@ end
 #
 #################################################################
 def write_pmk(pmks)
-  #puts "PMK:",hash,pmks
+  #puts "PMK:",pmks
   # Write out the new file
   File.open(PMK_FILE,"w") { |f|
     #f.write("# Hash: "+hash+"\n")
@@ -1170,6 +1178,7 @@ def write_pmk(pmks)
     pmks.each do |pmk_entry|
       if pmk_entry.key?("user") and pmk_entry.key?("pmk")
         f.write(" pmk="+pmk_entry["pmk"]+"\n")
+        @pmk_to_user[pmk_entry["pmk"]] = pmk_entry["user"]
       elsif pmk_entry.key?("user") and pmk_entry.key?("vlanid") and pmk_entry.key?("pmk")
         f.write(" vlanid="+pmk_entry["vlanid"].to_s+" pmk="+pmk_entry["pmk"]+"\n")
       elsif pmk_entry.key?("vlanid") and pmk_entry.key?("pmk") # No Login/account association (Normal for PSK WLAN)
@@ -1179,6 +1188,7 @@ def write_pmk(pmks)
       end
     end
   }
+  puts "PMK to USER: #{ @pmk_to_user}"
 end
 
 
