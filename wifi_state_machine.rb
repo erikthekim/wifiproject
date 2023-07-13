@@ -45,7 +45,7 @@ PMK_FILE = "/tmp/hostapd.wpa_pmk_file"
 HOSTAPD_FILE = "/tmp/hostapd.conf"
 
 # map pmk to user names
-@pmk_to_user = Hash.new
+@pmk_to_user_id = Hash.new
 #################################################################
 # puts and print overrides to redirect to logging engine.
 #################################################################
@@ -226,11 +226,11 @@ class Wlanbridge_instance
     cmd = "sudo kill -0 " + @pid.to_s
     result = `#{cmd}`
     if $?.success?
-      #puts "Running"
+      puts "Bridge Running"
       return true
     else
       @pid = 0
-      #puts "Not Running"
+      puts "Bridge Not Running"
       return false
     end
   end
@@ -263,7 +263,8 @@ class Wlanbridge_instance
   def stop()
     if @pid > 0 and is_running
       print "Stopping wlanbridge: ",@pid," on ",@wlan,"\n"
-      cmd = "sudo kill -9 " + @pid.to_s
+      cmd = "sudo pkill bridge"
+      #cmd = "sudo kill -9 " + @pid.to_s
       `#{ cmd }`
       @pid = 0
     end
@@ -776,9 +777,9 @@ def gather_station_info(interface_channels,connection_states,hostapd_procs)
         @stations[mac] = @stations[mac].merge(station_state)
       end
       @stations[mac]["ssid"] = hostapd_procs[@stations[mac]["interface"]].ssid
-      puts " @pmk_to_user #{ @pmk_to_user}"
-      puts "USER: #{@pmk_to_user[@stations[mac]["pmk"]]}"
-      @stations[mac]["user"] = @pmk_to_user[ @stations[mac]["pmk"]]
+      puts " @pmk_to_user_id #{ @pmk_to_user_id}"
+      puts "USER: #{@pmk_to_user_id[@stations[mac]["pmk"]]}"
+      @stations[mac]["user_id"] = @pmk_to_user_id[ @stations[mac]["pmk"]]
     }
 
     @all_stations = @all_stations.merge(@stations)
@@ -1008,8 +1009,9 @@ def send_cloud_request(wifictlr,endpoint, postdata)
 
   #wifictlr = "192.168.1.250"
 
-  url = 'http://'+wifictlr+':3000'+'/api/v1/' + endpoint
+  url = 'http://'+wifictlr+':3000'+'/api/v1/wificlients/' + endpoint
   puts "url: #{url}"
+  puts "SEND: #{body}"
   header = { 'Content-Type' => 'application/json' }
 
   response_error = {
@@ -1054,7 +1056,7 @@ def get_cloud_request(wifictlr,endpoint, postdata)
 
   #wifictlr = "192.168.1.250"
 
-  url = 'http://'+wifictlr+':3000'+'/api/v1/' + endpoint
+  url = 'http://'+wifictlr+':3000'+'/api/v1/wificlients/' + endpoint
   puts "url: #{url}"
   header = { 'Content-Type' => 'application/json' }
 
@@ -1116,21 +1118,22 @@ def send_cloud_hello_mesg(wifictlr,mac)
          }
 
   print "Hello: ", body.to_json,"\n"
-  result = send_cloud_request(wifictlr, "wificlients/hello", body)
+  result = send_cloud_request(wifictlr, "hello", body)
 
   return result
 end
 
 # Send a config message to the wifictlr
-def send_cloud_conf_mesg(wifictlr,mac)
-  config = { mac: mac
+def send_cloud_conf_mesg(wifictlr,mac,start)
+  config = { mac: mac,
+             start: start
              #config_hashes: conf_hashes,
              #pmk_hash: pmk_hash
            }
   print "Config request:", config.to_json,"\n"
 
-#  result = send_cloud_request(wifictlr, "get_config.json", config)
-  result = send_cloud_request(wifictlr, "jsontests/2", config)
+  result = send_cloud_request(wifictlr, "get_config", config)
+#  result = send_cloud_request(wifictlr, "jsontests/1", config)
   print "Config results:",result.to_json,"\n"
   return result
 end
@@ -1143,15 +1146,16 @@ def send_cloud_alive_mesg(wifictlr,mac,channels,uptime)
             channels: channels,
             uptime: uptime
           }
-  print "Alive  request:", alive.to_json,"\n"
+  print "Alive request:", alive.to_json,"\n"
 
-  result = send_cloud_request(wifictlr,"alive.json", alive)
+  result = send_cloud_request(wifictlr,"alive", alive)
+  print "Alive results:",result.to_json,"\n"
   return result
 end
 
 # Send an wireless clients message to the wifictlr
 def send_cloud_clients_mesg(wifictlr,clients)
-  result = send_cloud_request(wifictlr,"update_wireless_clients.json", clients)
+  result = send_cloud_request(wifictlr,"update_wireless_clients", clients)
   return result
 end
 
@@ -1176,19 +1180,19 @@ def write_pmk(pmks)
     #f.write("# Hash: "+hash+"\n")
     f.write("# Warning - This file is auto generated.  Do not modify\n")
     pmks.each do |pmk_entry|
-      if pmk_entry.key?("user") and pmk_entry.key?("pmk")
+      if pmk_entry.key?("user_id") and pmk_entry.key?("pmk")
         f.write(" pmk="+pmk_entry["pmk"]+"\n")
-        @pmk_to_user[pmk_entry["pmk"]] = pmk_entry["user"]
-      elsif pmk_entry.key?("user") and pmk_entry.key?("vlanid") and pmk_entry.key?("pmk")
-        f.write(" vlanid="+pmk_entry["vlanid"].to_s+" pmk="+pmk_entry["pmk"]+"\n")
-      elsif pmk_entry.key?("vlanid") and pmk_entry.key?("pmk") # No Login/account association (Normal for PSK WLAN)
-        f.write("vlanid="+pmk_entry["vlanid"].to_s+" pmk="+pmk_entry["pmk"]+"\n")
+        @pmk_to_user_id[pmk_entry["pmk"]] = pmk_entry["user_id"]
+      elsif pmk_entry.key?("user_id") and pmk_entry.key?("vlan_id") and pmk_entry.key?("pmk")
+        f.write(" vlan_id="+pmk_entry["vlan_id"].to_s+" pmk="+pmk_entry["pmk"]+"\n")
+      elsif pmk_entry.key?("vlan_id") and pmk_entry.key?("pmk") # No Login/account association (Normal for PSK WLAN)
+        f.write("vlan_id="+pmk_entry["vlan_id"].to_s+" pmk="+pmk_entry["pmk"]+"\n")
       else
         puts "Bad PMK entry: #{ pmk_entry }"
       end
     end
   }
-  puts "PMK to USER: #{ @pmk_to_user}"
+  puts "PMK to USER: #{ @pmk_to_user_id}"
 end
 
 
@@ -1418,6 +1422,9 @@ def pifi_management
   # Process Restart Counters for HostAPD, WLANBridge and RadiusClient
   proc_restart_failures = 0
 
+  # Set start to 1 so we get a complete configuration
+  start = 1
+
   # Start the state machine
   while @should_run
 
@@ -1498,7 +1505,7 @@ def pifi_management
         puts "CONFIG state"
         @start_time = 0
         static_vids = {}
-        result = send_cloud_conf_mesg(controller_ip,mac)
+        result = send_cloud_conf_mesg(controller_ip,mac,start)
         wait = process_wait_time(wait, result)
 
         if result.nil?
@@ -1581,6 +1588,7 @@ def pifi_management
                 sleep(2)
                 #hostapd_proc.run_or_hup(WLAN_STATES::AP)
                 hostapd_proc.set_to_start
+                start = 0
                 if new_pmk
                   # If the pmks change, we must reload
                   puts "reloading pmks for #{ wlan }"
@@ -1694,7 +1702,7 @@ def pifi_management
         puts "Alive result:",result
         if result.nil?
           response_failures += 1
-          puts "nothing returns from wifictlr, retries: #{ response_failures }"
+          puts "nothing returned from wifictlr, retries: #{ response_failures }"
           if response_failures > CLOUD_RETRIES
             puts "#{ CLOUD_RETRIES } falures, disabling WiFi"
             state.update(STATES::DISABLING)
