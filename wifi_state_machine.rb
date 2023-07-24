@@ -1609,9 +1609,9 @@ def pifi_management
                 #  config_hashes[wlan] = config_hash
                 print "Stop: ",interface,"\n"
                 interface_change = true
-                if hostapd_proc.is_running
-                  hostapd_proc.stop()
-                end
+                #if hostapd_proc.is_running
+                hostapd_proc.stop()
+                #end
               else
                 print "Unknown radio mode: ",mode,"\n"
               end
