@@ -105,7 +105,7 @@ module PROCESS_STATES
 end
 
 module WLAN_STATES
-  OFF = 0 # Not bring used
+  OFF = 0 # Not being used
   AP = 1 # Being used as an AP
   SCAN = 2 # Being used for monitoring
   WAIT_AP = 4 # Waiting to start as AP
