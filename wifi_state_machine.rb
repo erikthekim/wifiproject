@@ -938,6 +938,9 @@ def select_channel(interface,channels,channel)
     channels = channels.split(',')
   end
 
+  if channels[0].is_a? String
+     channels.map!(&:to_i)
+  end
   # Check for corner cases
   if channels.length() == 0
     return channel
@@ -1011,7 +1014,7 @@ def send_cloud_request(wifictlr,endpoint, postdata)
 
   url = 'http://'+wifictlr+':3000'+'/api/v1/wificlients/' + endpoint
   puts "url: #{url}"
-  puts "SEND: #{body}"
+  #puts "SEND: #{body}"
   header = { 'Content-Type' => 'application/json' }
 
   response_error = {
@@ -1046,7 +1049,6 @@ def send_cloud_request(wifictlr,endpoint, postdata)
   end
 
   r = result=result.parsed_response['json']
-  puts "send_cloud_request result######: #{r}"
   return r
 end
 
@@ -1192,7 +1194,7 @@ def write_pmk(pmks)
       end
     end
   }
-  puts "PMK to USER: #{ @pmk_to_user_id}"
+  #puts "PMK to USER: #{ @pmk_to_user_id}"
 end
 
 
@@ -1491,7 +1493,7 @@ def pifi_management
         end
 
         poll_timer = result["poll_timer"]
-        puts "setting poll timer to #{poll_timer} secs."
+        #puts "setting poll timer to #{poll_timer} secs."
         state.set_poll_time(poll_timer)
       end # end of 1.times do
 
