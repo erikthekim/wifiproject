@@ -12,10 +12,10 @@ MINOR = 0
 REVISION = 9
 
 # Set controlleraddress here
-#CONTROLLER = '138.28.72.140' # Skon Server
-CONTROLLER = '192.168.100.201' # Skon Server
+CONTROLLER = '138.28.72.140' # Skon Server
+#CONTROLLER = '192.168.100.201' # Skon Server
 
-require 'active_support/core_ext/object/blank'
+#require 'active_support/core_ext/object/blank'
 
 # Wifi State Machine Code
 require 'rubygems'
@@ -128,17 +128,20 @@ class Hostapd_instance
 
   def is_running
     if @pid==0
+      puts "HOSTAP no PID"
       return false
     end
-    print "PID " + @pid.to_s + " "
-    cmd = "sudo kill -0 " + @pid.to_s
+    print "HOSTAPD PID " + @pid.to_s + " "
+    ps = `ps aux | grep hostapd`
+    puts ps
+    cmd = "kill -0 " + @pid.to_s
     result = `#{cmd}`
     if $?.success?
       print  @wlan," hostapd running","\n"
       return true
     else
       @pid = 0
-      print @wlan,"hostapd not running","\n"
+      print @wlan," hostapd not running","\n"
       return false
     end
   end
@@ -165,37 +168,46 @@ class Hostapd_instance
   
   def run_or_hup(state)
     # See if running
+    puts "run_or_hup #{@pid.to_s}"
+    ps = `ps aux | grep hostapd`
+    puts ps
     if self.is_running
       print  @wlan,"hostapd HUP the process","\n"
-      cmd = "sudo kill -HUP " + @pid.to_s
+      cmd = "kill -HUP " + @pid.to_s
       `#{ cmd }`
-    else
-      print "Start the HOSTAPD process for ",@wlan,"\n"
-
-      cmd = "sudo /usr/sbin/hostapd -f /tmp/hostapd.#{@wlan}.log #{@conf_file}"
-      puts "Start HOSTAPD: #{cmd}"
-      @pid = Process.spawn(cmd)
-      Process.detach(@pid)
-
-      print "Start hostapd for ",@wlan,"PID:",@pid,"\n"
+      ps = `ps aux | grep hostapd`
+      puts ps
     end
-      @state = state
+    print "Start the HOSTAPD process for ",@wlan,"\n"
+
+    cmd = "/usr/sbin/hostapd -f /tmp/hostapd.#{@wlan}.log #{@conf_file}"
+    puts "Start HOSTAPD: #{cmd}"
+    @pid = Process.spawn(cmd)
+    Process.detach(@pid)
+    
+    print "Start hostapd for ",@wlan,"PID:",@pid,"\n"
+    ps = `ps aux | grep hostapd`
+    puts ps
+
+    @state = state
   end
 
   def stop()
     if @pid > 0 and is_running
       print "Stopping hostapd for ",@wlan," pid: " ,@pid,".\n"
-      cmd = "sudo kill -9 " + @pid.to_s
+      cmd = "kill -9 " + @pid.to_s
       `#{ cmd }`
       @pid = 0
+      ps = `ps aux | grep hostapd`
+      puts ps
 
       #also we need to down wlan or else SSID is still broadcast
-      cmd = "sudo ifconfig #{@wlan} down"
+      cmd = "ifconfig #{@wlan} down"
       `#{ cmd }`
-      cmd = "sudo ifconfig #{@wlan} up"
+      cmd = "ifconfig #{@wlan} up"
       `#{ cmd }`
-      
-
+    else
+      print "Error Stopping hostapd",@wlan," pid: " ,@pid,".\n"
     end
       @state = WLAN_STATES::OFF
   end
@@ -223,7 +235,7 @@ class Wlanbridge_instance
       return false
     end
     print "Bridge PID " + @pid.to_s + " "
-    cmd = "sudo kill -0 " + @pid.to_s
+    cmd = "kill -0 " + @pid.to_s
     result = `#{cmd}`
     if $?.success?
       puts "Bridge Running"
@@ -239,7 +251,7 @@ class Wlanbridge_instance
     @wlans = wlans
 
     puts "Start the wlanbridge process"
-    cmd = 'sudo /opt/wlanbridge/bridge eth0 '
+    cmd = '/opt/wlanbridge/bridge eth0 '
     wlans.each do | wlan |
       if static_vids.key?(wlan)
         puts "static_vids[wlan]: "+ static_vids[wlan].inspect
@@ -263,8 +275,8 @@ class Wlanbridge_instance
   def stop()
     if @pid > 0 and is_running
       print "Stopping wlanbridge: ",@pid," on ",@wlan,"\n"
-      cmd = "sudo pkill bridge"
-      #cmd = "sudo kill -9 " + @pid.to_s
+      cmd = "pkill bridge"
+      #cmd = "kill -9 " + @pid.to_s
       `#{ cmd }`
       @pid = 0
     end
@@ -381,7 +393,7 @@ class Radiusclient_instance
   def stop()
     if @pid > 0 and is_running
       puts "Stopping radius client: #{@pid}."
-      cmd = "sudo kill -9 " + @pid.to_s
+      cmd = "kill -9 " + @pid.to_s
       `#{ cmd }`
       @pid = 0
     end
@@ -819,7 +831,7 @@ def update_connections(connections)
     end
     # Clear the file
     puts "CLEAR FILE"
-    `sudo rm #{CONNECTION_LOG}`
+    `rm #{CONNECTION_LOG}`
     #File.open(CONNECTION_LOG,'w') {|file| file.truncate(0) }
 
   rescue
@@ -855,12 +867,12 @@ end
 #######################################################################
 def scan_for_aps (interface)
     # First let's make sure the interface is up
-    cmd = "sudo ifconfig #{interface} up"
+    cmd = "ifconfig #{interface} up"
     print "Bringing up interface: #{ cmd }\n"
     `#{ cmd }`
     puts "After bringing interface up..."
     
-    @ap_list = `sudo iw dev #{interface} scan`
+    @ap_list = `iw dev #{interface} scan`
     @lines = @ap_list.split("\n")
     @ap_data = {}
     @address = ""
@@ -1366,9 +1378,9 @@ def pifi_management
   # stores the time the AP started, 0 means not started
   @start_time = 0
   # kill hostapd, wlanbridge and radius client by name
-  `sudo pkill -f hostapd`
-  `sudo pkill -f wlanbridge`
-  #`sudo pkill -f radius_client.rb`
+  `pkill -f hostapd`
+  `pkill -f wlanbridge`
+  #`pkill -f radius_client.rb`
 
   #sleep to allow system to recover from killing hostapd and wlanbridge.
   sleep(1)
@@ -1570,6 +1582,10 @@ def pifi_management
               # If the mode is "AP" we need to set up this interface.  First check the config_hash for a change
               if mode == "AP"
                 print "FOUND AP:",wlan,"\n"
+                if hostapd_proc.is_running
+                  hostapd_proc.stop()
+                end
+                sleep(2)
                 ap_config=config["hostapd"]
                 active_interfaces.push(wlan)
                 #if config_hashes[wlan] != config_hash
@@ -1584,17 +1600,13 @@ def pifi_management
                  end
                 #config_hashes[wlan] = config_hash
                 print "*** New Config for ",wlan,"\n"
-                if hostapd_proc.is_running
-                  hostapd_proc.stop()
-                end
-                sleep(2)
                 #hostapd_proc.run_or_hup(WLAN_STATES::AP)
                 hostapd_proc.set_to_start
                 start = 0
                 if new_pmk
                   # If the pmks change, we must reload
                   puts "reloading pmks for #{ wlan }"
-                  cmd = "sudo hostapd_cli -i #{ wlan } reload_wpa_psk"
+                  cmd = "hostapd_cli -i #{ wlan } reload_wpa_psk"
                   result = `#{cmd}`.chomp
                   if result != "OK"
                     puts "Reload pmks failed, restarting hostapd for #{ wlan }"
@@ -1635,7 +1647,7 @@ def pifi_management
 
         # Start the hostaps
         hostapd_procs.each do | interface , hostapd_proc |
-          #puts "START HOSTAPD: #{interface}:#{hostapd_proc.state}"
+          puts "START HOSTAPD: #{interface}:#{hostapd_proc.state}"
           if hostapd_proc.state == WLAN_STATES::WAIT_AP
             hostapd_proc.run_or_hup(WLAN_STATES::AP)
           end
@@ -1771,7 +1783,7 @@ end
 ###################################################################################################
 # Write out our pid for the systemd
 mypid=$$
-`sudo chmod a+rw /run`
+`chmod a+rw /run`
 print "My PID:",mypid,"\n"
 File.open("/run/pifi.pid", "w") { |f| f.write mypid,"\n" }
 
