@@ -24,6 +24,7 @@ require 'json'
 require 'logger'
 require 'fileutils'
 require 'set'
+require 'socket'
 
 # Number of retries on message failure from the wifictlr
 CLOUD_RETRIES = 10
@@ -46,6 +47,7 @@ HOSTAPD_FILE = "/tmp/hostapd.conf"
 
 # map pmk to user names
 @pmk_to_user_id = Hash.new
+@my_ip_addr = ""
 #################################################################
 # puts and print overrides to redirect to logging engine.
 #################################################################
@@ -1129,6 +1131,7 @@ def send_cloud_hello_mesg(wifictlr,mac)
            os: os,
            model: cpu['model'],
            serial: cpu['serial'],
+           ipaddress: @my_ip_add
          }
 
   print "Hello: ", body.to_json,"\n"
@@ -1408,6 +1411,10 @@ def pifi_management
   puts "IP: " + controller_ip
   mac = get_mac_address
 
+  # Get my ip address
+  @my_ip_add = `hostname -I | awk '{print $1}'`.chomp
+  puts "My IP: #{@my_ip_add}"
+  
   #radiusclient_proc.set_params(radius_server: controller_ip)
 
   # time to wait between polls
