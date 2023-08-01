@@ -12,8 +12,8 @@ MINOR = 0
 REVISION = 9
 
 # Set controlleraddress here
-CONTROLLER = '138.28.72.140' # Skon Server
-#CONTROLLER = '192.168.100.201' # Skon Server
+#CONTROLLER = '138.28.72.140' # Skon Server
+CONTROLLER = '192.168.100.201' # Skon Server
 
 #require 'active_support/core_ext/object/blank'
 
@@ -134,8 +134,8 @@ class Hostapd_instance
       return false
     end
     print "HOSTAPD PID " + @pid.to_s + " "
-    ps = `ps aux | grep hostapd`
-    puts ps
+    #ps = `ps aux | grep hostapd`
+    #puts ps
     cmd = "kill -0 " + @pid.to_s
     result = `#{cmd}`
     if $?.success?
@@ -171,14 +171,14 @@ class Hostapd_instance
   def run_or_hup(state)
     # See if running
     puts "run_or_hup #{@pid.to_s}"
-    ps = `ps aux | grep hostapd`
-    puts ps
+    #ps = `ps aux | grep hostapd`
+    #puts ps
     if self.is_running
       print  @wlan,"hostapd HUP the process","\n"
       cmd = "kill -HUP " + @pid.to_s
       `#{ cmd }`
-      ps = `ps aux | grep hostapd`
-      puts ps
+      #ps = `ps aux | grep hostapd`
+      #puts ps
     end
     print "Start the HOSTAPD process for ",@wlan,"\n"
 
@@ -200,8 +200,8 @@ class Hostapd_instance
       cmd = "kill -9 " + @pid.to_s
       `#{ cmd }`
       @pid = 0
-      ps = `ps aux | grep hostapd`
-      puts ps
+      #ps = `ps aux | grep hostapd`
+      #puts ps
 
       #also we need to down wlan or else SSID is still broadcast
       cmd = "ifconfig #{@wlan} down"
