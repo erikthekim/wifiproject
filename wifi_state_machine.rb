@@ -188,8 +188,8 @@ class Hostapd_instance
     Process.detach(@pid)
     
     print "Start hostapd for ",@wlan,"PID:",@pid,"\n"
-    ps = `ps aux | grep hostapd`
-    puts ps
+    #ps = `ps aux | grep hostapd`
+    #puts ps
 
     @state = state
   end
@@ -781,7 +781,7 @@ def gather_station_info(interface_channels,connection_states,hostapd_procs)
   interface_channels.each { | wlan, channel |
     #get the stations for a given wlan
     @stations = get_stations(wlan,channel)
-    puts "STATIONS! #{@stations}"
+    #puts "STATIONS! #{@stations}"
     # Merge results with latest connection state
     @stations.each { | mac, station |
       station_state = connection_states[mac]
@@ -803,7 +803,7 @@ def gather_station_info(interface_channels,connection_states,hostapd_procs)
     #    @all_stations[mac] = station
     #  end
     #}
-    puts "STATIONS: #{ @all_stations }"
+    #puts "STATIONS: #{ @all_stations }"
 
     # Clear connection states for stations no longer present
     #connection_states.keys.each { | mac |
@@ -1720,7 +1720,6 @@ def pifi_management
 
         @uptime = Time.now - @start_time
         result = send_cloud_alive_mesg(controller_ip,mac,@channels,@uptime)
-        puts "Alive result:",result
         if result.nil?
           response_failures += 1
           puts "nothing returned from wifictlr, retries: #{ response_failures }"
