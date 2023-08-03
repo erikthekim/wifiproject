@@ -825,10 +825,11 @@ CONNECTION_LOG = "/tmp/connections.log"
 def update_connections(connections)
   begin
     File.open(CONNECTION_LOG).each do |line|
-      puts "CONNECTIONS: #{line}"
+      puts "CONNECTION: #{line}"
       connection = JSON.parse(line)
       if connection.key? "mac"
         mac = connection["mac"].downcase
+        puts "CON: #{mac}, #{connection}"
         connections[mac] = connection
       end
     end
