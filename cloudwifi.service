@@ -1,0 +1,12 @@
+# cloudwifi.service
+[Unit]
+Description=Cloud Wifi Service
+systemctl daemon-reload
+
+[Service]
+ExecStart=/usr/bin/bash /root/.scripts/startcloudwifi.sh
+Type=forking
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -13,7 +13,8 @@ REVISION = 9
 
 # Set controlleraddress here
 #CONTROLLER = '138.28.72.140' # Skon Server
-CONTROLLER = '192.168.100.201' # Skon Server
+#CONTROLLER = '192.168.100.201' # Skon Server
+CONTROLLER = 'cloudwifi.org' # Skon Server
 
 #require 'active_support/core_ext/object/blank'
 
