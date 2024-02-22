@@ -11,10 +11,15 @@ MAJOR = 1
 MINOR = 0
 REVISION = 9
 
-# Set controlleraddress here
-#CONTROLLER = '138.28.72.140' # Skon Server
-#CONTROLLER = '192.168.100.201' # Skon Server
-CONTROLLER = 'cloudwifi.org' # Skon Server
+# Set controller address here
+#CONTROLLER = '192.168.100.215' # Kenyon Test server 1
+CONTROLLER = 'cloudwifi.org' # Cloud server
+# Set Controller PorT
+PORT=3000   #default
+#PORT=3001
+#PORT=3002
+#PORT=3003
+#PORT=3004
 
 #require 'active_support/core_ext/object/blank'
 
@@ -1028,7 +1033,7 @@ def send_cloud_request(wifictlr,endpoint, postdata)
 
   #wifictlr = "192.168.1.250"
 
-  url = 'http://'+wifictlr+':3000'+'/api/v1/wificlients/' + endpoint
+  url = 'http://'+wifictlr+':PORT'+'/api/v1/wificlients/' + endpoint
   puts "url: #{url}"
   #puts "SEND: #{body}"
   header = { 'Content-Type' => 'application/json' }
@@ -1074,7 +1079,7 @@ def get_cloud_request(wifictlr,endpoint, postdata)
 
   #wifictlr = "192.168.1.250"
 
-  url = 'http://'+wifictlr+':3000'+'/api/v1/wificlients/' + endpoint
+  url = 'http://'+wifictlr+':PORT'+'/api/v1/wificlients/' + endpoint
   puts "url: #{url}"
   header = { 'Content-Type' => 'application/json' }
 
