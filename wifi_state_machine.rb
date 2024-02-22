@@ -14,7 +14,7 @@ REVISION = 9
 # Set controller address here
 #CONTROLLER = '138.28.162.215' # Kenyon Test server 1
 CONTROLLER = 'cloudwifi.org' # Cloud server
-# Set Controller PorT
+# Set Controller Port
 PORT=3000   #default
 #PORT=3001
 #PORT=3002
@@ -1031,9 +1031,8 @@ end
 def send_cloud_request(wifictlr,endpoint, postdata)
   body = postdata.to_json
 
-  #wifictlr = "192.168.1.250"
 
-  url = 'http://'+wifictlr+':PORT'+'/api/v1/wificlients/' + endpoint
+  url = "http://#{wifictlr}:#{PORT}/api/v1/wificlients/#{endpoint}"
   puts "url: #{url}"
   #puts "SEND: #{body}"
   header = { 'Content-Type' => 'application/json' }
@@ -1077,9 +1076,8 @@ end
 def get_cloud_request(wifictlr,endpoint, postdata)
   body = postdata.to_json
 
-  #wifictlr = "192.168.1.250"
-
-  url = 'http://'+wifictlr+':PORT'+'/api/v1/wificlients/' + endpoint
+  url = "http://#{wifictlr}:#{PORT}/api/v1/wificlients/#{endpoint}"
+  
   puts "url: #{url}"
   header = { 'Content-Type' => 'application/json' }
 
