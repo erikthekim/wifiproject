@@ -1,4 +1,4 @@
-#!/usr/bin/ruby
+#!/usr/bin/ruby 
 require 'ipaddr'
 #########################################################################################
 # Bugs to address / think about
@@ -53,7 +53,7 @@ HOSTAPD_FILE = "/tmp/hostapd.conf"
 
 # map pmk to user names
 @pmk_to_user_id = Hash.new
-@my_ip_addr = ""
+@my_ip_add = `hostname -I | awk '{print $1}'`.chomp
 #################################################################
 # puts and print overrides to redirect to logging engine.
 #################################################################
@@ -1130,6 +1130,7 @@ def send_cloud_hello_mesg(wifictlr,mac)
   wlans = gather_wlan_info
   version_str = MAJOR.to_s+"."+MINOR.to_s+"."+REVISION.to_s
   puts "VERSION: #{version_str}"
+  @my_ip_add = `hostname -I | awk '{print $1}'`.chomp
   body = { mac: mac,
            version: version_str,
            wlans: wlans,
