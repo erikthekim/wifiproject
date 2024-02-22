@@ -12,7 +12,7 @@ MINOR = 0
 REVISION = 9
 
 # Set controller address here
-#CONTROLLER = '192.168.100.215' # Kenyon Test server 1
+#CONTROLLER = '138.28.162.215' # Kenyon Test server 1
 CONTROLLER = 'cloudwifi.org' # Cloud server
 # Set Controller PorT
 PORT=3000   #default
