@@ -51,6 +51,9 @@ PMK_FILE = "/tmp/hostapd.wpa_pmk_file"
 # hostapd.conf
 HOSTAPD_FILE = "/tmp/hostapd.conf"
 
+# Current list of used channels
+@current_channels = []
+
 # map pmk to user names
 @pmk_to_user_id = Hash.new
 @my_ip_add = `hostname -I | awk '{print $1}'`.chomp
@@ -968,8 +971,11 @@ def select_channel(interface,channels,channel)
   end
   if channels.length() == 1
     return channels[0]
-  end
+  end current_channels
 
+  # Remove channel from contention if we are already using it.
+  channels = channels - current_channels
+  
   @avail_channels = channels.to_set
 
   @scan = scan_for_aps(interface)
@@ -1499,6 +1505,9 @@ def pifi_management
         @start_time = 0
         proc_restart_failures = 0
 
+        # Clear used channel list
+        @current_channels = []
+        
         result = send_cloud_hello_mesg(controller_ip,mac)
         puts "Reply:",result
 
