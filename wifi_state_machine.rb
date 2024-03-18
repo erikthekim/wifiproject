@@ -6,10 +6,11 @@ require 'ipaddr'
 #########################################################################################
 ########################################################################################
 # Version - of the form major.minor.revision
+# Feb 15, 2024 - Fixed IP address saving
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 9
+REVISION = 10
 
 # Set controller address here
 #CONTROLLER = '138.28.162.215' # Kenyon Test server 1
