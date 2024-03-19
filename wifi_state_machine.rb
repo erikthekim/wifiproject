@@ -424,7 +424,7 @@ end
 #
 #################################################################
 class State
-  def initialize(state, sleep_time = 30)
+  def initialize(state, sleep_time = 5)
     @my_state=state
     @changed=true
     @last_run_time_ms = 0
