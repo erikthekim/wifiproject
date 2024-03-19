@@ -1773,8 +1773,8 @@ def pifi_management
       #config_hash = "FFFFFFFFFFFF"
       #pmk_hash = "FFFFFFFFFFFF"
 
-      #set back to 30 seconds and force pause
-      state.set_poll_time(30)
+      #set back to DEFAULT_RATE seconds and force pause
+      state.set_poll_time(DEFAULT_RATE)
       state.update(STATES::START,true)
     end
   end # End of State Machine Loop
