@@ -23,6 +23,9 @@ PORT=3000   #default
 #PORT=3003
 #PORT=3004
 
+# Default Sleep Time in seconds
+DEFAULT_SLEEP = 30
+
 #require 'active_support/core_ext/object/blank'
 
 # Wifi State Machine Code
@@ -424,7 +427,7 @@ end
 #
 #################################################################
 class State
-  def initialize(state, sleep_time = 5)
+  def initialize(state, sleep_time = DEFAULT_SLEEP)
     @my_state=state
     @changed=true
     @last_run_time_ms = 0
