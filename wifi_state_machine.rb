@@ -14,8 +14,10 @@ REVISION = 10
 
 # Set controller address here
 #CONTROLLER = '138.28.162.215' # Kenyon Test server 1
+CONTROLLER = '138.28.162.211' # Kenyon Test server 1
 #CONTROLLER = '192.168.100.211' # Cloud server at home  
-CONTROLLER = 'cloudwifi.org' # Cloud server
+#CONTROLLER = '192.168.100.201' # Cloud server at home  
+#CONTROLLER = 'cloudwifi.org' # Cloud server
 # Set Controller Port
 PORT=3000   #default
 #PORT=3001
@@ -1070,6 +1072,7 @@ def send_cloud_request(wifictlr,endpoint, postdata)
     return response_error
   end
 
+  puts "########RESULT: #{result}"
   r = result=result.parsed_response['json']
   return r
 end
@@ -1736,7 +1739,9 @@ def pifi_management
             state.update(STATES::DISABLING)
             response_failures = 0
           end
-
+        elsif (result["action"] == "reboot") #  Time to reboot
+          puts "REBOOT!!!!!!!!!"
+          `sudo reboot`
         elsif (result["status"] == "success") #nothing needed to be performed
 
         elsif (result["status"] == "update") #we need to switch back to get a new config as we are out of date
