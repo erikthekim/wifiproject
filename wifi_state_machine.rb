@@ -1747,13 +1747,13 @@ def pifi_management
           puts "REBOOT!!!!!!!!!"
           `sudo reboot`
         # See if github version check requested
-        elsif (result["action"] == "version") #  check version                                                                                                                                         
-          gitstatus = `git status`
-          if gitstatus.include? "up to date"
-            puts "$$$$$$$$$$UP to date"
-          else
-            puts "$$$$$$$$$$New Version"
-          end
+        #elsif (result["action"] == "version") #  check version                                                                                                                                         
+        #  gitstatus = `git status`
+        #  if gitstatus.include? "up to date"
+        #    puts "$$$$$$$$$$UP to date"
+        #  else
+        #    puts "$$$$$$$$$$New Version"
+        #  end
         
         elsif (result["status"] == "success") #nothing needed to be performed
 
