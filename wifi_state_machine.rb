@@ -1742,9 +1742,19 @@ def pifi_management
             state.update(STATES::DISABLING)
             response_failures = 0
           end
+        # Check if reboot is requested
         elsif (result["action"] == "reboot") #  Time to reboot
           puts "REBOOT!!!!!!!!!"
           `sudo reboot`
+        # See if github version check requested
+        elsif (result["action"] == "version") #  check version                                                                                                                                         
+          gitstatus = `git status`
+          if gitstatus.include? "up to date"
+            puts "$$$$$$$$$$UP to date"
+          else
+            puts "$$$$$$$$$$New Version"
+          end
+        
         elsif (result["status"] == "success") #nothing needed to be performed
 
         elsif (result["status"] == "update") #we need to switch back to get a new config as we are out of date
