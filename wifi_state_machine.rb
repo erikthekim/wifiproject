@@ -1354,6 +1354,8 @@ def pifi_management
   @uptime = 0
   # stores the time the AP started, 0 means not started
   @start_time = 0
+  # The hash of the config currently running on the device
+  @config_hash = ""
   # kill hostapd, wlanbridge and radius client by name
   `pkill -f hostapd`
   `pkill -f wlanbridge`
@@ -1519,6 +1521,10 @@ def pifi_management
           state.update(STATES::DISABLING)
           break
         end
+
+        # Updates the config hash to reflect the most recent config file.
+        @config_hash = result["confighash"]
+        puts "Received configuration hash: #{@config_hash}"
 
         # set radius secret
         # if !result["radius_secret"].nil?
