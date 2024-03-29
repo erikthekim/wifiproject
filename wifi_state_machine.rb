@@ -1,5 +1,5 @@
-#!/usr/bin/ruby 
-require 'ipaddr'
+#!/usr/bin/ruby
+require "ipaddr"
 #########################################################################################
 # Bugs to address / think about
 # jmb - in start() for processes, should it look to kill the process if already running?
@@ -13,29 +13,29 @@ MINOR = 0
 REVISION = 10
 
 # Set controller address here
-#CONTROLLER = '138.28.162.215' # Kenyon Test server 1
-#CONTROLLER = '192.168.100.211' # Cloud server at home  
-CONTROLLER = 'cloudwifi.org' # Cloud server
+# CONTROLLER = '138.28.162.215' # Kenyon Test server 1
+# CONTROLLER = '192.168.100.211' # Cloud server at home
+CONTROLLER = "cloudwifi.org" # Cloud server
 # Set Controller Port
-PORT=3000   #default
-#PORT=3001
-#PORT=3002
-#PORT=3003
-#PORT=3004
+PORT = 3000   # default
+# PORT=3001
+# PORT=3002
+# PORT=3003
+# PORT=3004
 
 # Default Sleep Time in seconds
 DEFAULT_SLEEP = 30
 
-#require 'active_support/core_ext/object/blank'
+# require 'active_support/core_ext/object/blank'
 
 # Wifi State Machine Code
-require 'rubygems'
-require 'httparty'
-require 'json'
-require 'logger'
-require 'fileutils'
-require 'set'
-require 'socket'
+require "rubygems"
+require "httparty"
+require "json"
+require "logger"
+require "fileutils"
+require "set"
+require "socket"
 
 # Number of retries on message failure from the wifictlr
 CLOUD_RETRIES = 10
@@ -44,8 +44,8 @@ CLOUD_RETRIES = 10
 PROC_RESTART_RETRIES = 5
 
 # Wifi current HASHES
-#cur_config_hash = "FFFFFFFFFFFFFFF"
-#cur_pmk_hash = "FFFFFFFFFFFFFFF"
+# cur_config_hash = "FFFFFFFFFFFFFFF"
+# cur_pmk_hash = "FFFFFFFFFFFFFFF"
 
 # Wifi current connection states
 @connection_states = {}
@@ -57,7 +57,7 @@ PMK_FILE = "/tmp/hostapd.wpa_pmk_file"
 HOSTAPD_FILE = "/tmp/hostapd.conf"
 
 # map pmk to user names
-@pmk_to_user_id = Hash.new
+@pmk_to_user_id = {}
 @my_ip_add = `hostname -I | awk '{print $1}'`.chomp
 #################################################################
 # puts and print overrides to redirect to logging engine.
@@ -71,22 +71,22 @@ def puts(o1, o2 = nil, o3 = nil)
   line = line.strip
 
   # Removes all unprintable characters from a line.
-  line = line.gsub(/[^[:print:]]/,'')
+  line = line.gsub(/[^[:print:]]/, "")
 
   if line.length == 0
     return
   end
 
-  #output to STDOUT
+  # output to STDOUT
   super(line)
 
-  #output to log file
+  # output to log file
   if !$logger.nil?
     $logger.info(line)
   end
 end
 
-def print(o1, o2 = nil, o3 = nil, o4 = nil, o5 = nil, o6=nil)
+def print(o1, o2 = nil, o3 = nil, o4 = nil, o5 = nil, o6 = nil)
   line = o1.to_s
   if !o2.nil? then line += o2.to_s end
   if !o3.nil? then line += o3.to_s end
@@ -104,17 +104,17 @@ end
 #
 #################################################################
 module STATES
-  START     = 0   # Waiting from approval
-  CONFIG    = 1   # Waiting for config
-  HEALTH    = 2   # Heath notice - bad config or pmk
-  RUN       = 3   # AP is running
+  START = 0   # Waiting from approval
+  CONFIG = 1   # Waiting for config
+  HEALTH = 2   # Heath notice - bad config or pmk
+  RUN = 3   # AP is running
   DISABLING = 4   # Need to disable radios
-  WAITGW    = 5   # Wait for gateway address
+  WAITGW = 5   # Wait for gateway address
 end
 
 module PROCESS_STATES
-  DOWN   = 0  # This instance is not running
-  RUN    = 1 # This instance is running
+  DOWN = 0  # This instance is not running
+  RUN = 1 # This instance is running
 end
 
 module WLAN_STATES
@@ -132,7 +132,7 @@ end
 class Hostapd_instance
   def initialize(wlan)
     @pid = 0
-    @conf_file = "/tmp/hostapd."+wlan+".conf"
+    @conf_file = "/tmp/hostapd." + wlan + ".conf"
     @wlan = wlan
     @state = WLAN_STATES::OFF
     @thread = nil
@@ -140,93 +140,87 @@ class Hostapd_instance
   end
 
   def is_running
-    if @pid==0
+    if @pid == 0
       puts "HOSTAP no PID"
       return false
     end
     print "HOSTAPD PID " + @pid.to_s + " "
-    #ps = `ps aux | grep hostapd`
-    #puts ps
+    # ps = `ps aux | grep hostapd`
+    # puts ps
     cmd = "kill -0 " + @pid.to_s
     result = `#{cmd}`
     if $?.success?
-      print  @wlan," hostapd running","\n"
-      return true
+      print @wlan, " hostapd running", "\n"
+      true
     else
       @pid = 0
-      print @wlan," hostapd not running","\n"
-      return false
+      print @wlan, " hostapd not running", "\n"
+      false
     end
   end
 
-  def state
-    return @state
-  end
+  attr_reader :state
 
-  def wlan
-    return @wlan
-  end
+  attr_reader :wlan
 
   def set_ssid(ssid)
     @ssid = ssid
   end
 
-  def ssid
-    return @ssid
-  end
+  attr_reader :ssid
 
   def set_to_start
     @state = WLAN_STATES::WAIT_AP
   end
-  
+
   def run_or_hup(state)
     # See if running
-    puts "run_or_hup #{@pid.to_s}"
-    #ps = `ps aux | grep hostapd`
-    #puts ps
-    if self.is_running
-      print  @wlan,"hostapd HUP the process","\n"
+    puts "run_or_hup #{@pid}"
+    # ps = `ps aux | grep hostapd`
+    # puts ps
+    if is_running
+      print @wlan, "hostapd HUP the process", "\n"
       cmd = "kill -HUP " + @pid.to_s
-      `#{ cmd }`
-      #ps = `ps aux | grep hostapd`
-      #puts ps
+      `#{cmd}`
+      # ps = `ps aux | grep hostapd`
+      # puts ps
     end
-    print "Start the HOSTAPD process for ",@wlan,"\n"
+    print "Start the HOSTAPD process for ", @wlan, "\n"
 
     cmd = "/usr/sbin/hostapd -f /tmp/hostapd.#{@wlan}.log #{@conf_file}"
     puts "Start HOSTAPD: #{cmd}"
     @pid = Process.spawn(cmd)
     Process.detach(@pid)
-    
-    print "Start hostapd for ",@wlan,"PID:",@pid,"\n"
-    #ps = `ps aux | grep hostapd`
-    #puts ps
+
+    print "Start hostapd for ", @wlan, "PID:", @pid, "\n"
+    # ps = `ps aux | grep hostapd`
+    # puts ps
 
     @state = state
   end
 
-  def stop()
+  def stop
     if @pid > 0 and is_running
-      print "Stopping hostapd for ",@wlan," pid: " ,@pid,".\n"
+      print "Stopping hostapd for ", @wlan, " pid: ", @pid, ".\n"
       cmd = "kill -9 " + @pid.to_s
-      `#{ cmd }`
+      `#{cmd}`
       @pid = 0
-      #ps = `ps aux | grep hostapd`
-      #puts ps
+      # ps = `ps aux | grep hostapd`
+      # puts ps
 
-      #also we need to down wlan or else SSID is still broadcast
+      # also we need to down wlan or else SSID is still broadcast
       cmd = "ifconfig #{@wlan} down"
-      `#{ cmd }`
+      `#{cmd}`
       cmd = "ifconfig #{@wlan} up"
-      `#{ cmd }`
+      `#{cmd}`
     else
-      print "Error Stopping hostapd",@wlan," pid: " ,@pid,".\n"
+      print "Error Stopping hostapd", @wlan, " pid: ", @pid, ".\n"
     end
-      @state = WLAN_STATES::OFF
+    @state = WLAN_STATES::OFF
   end
 
   def get_pid
-    return pid
+    pid
   end
 end
 
@@ -244,7 +238,7 @@ class Wlanbridge_instance
   end
 
   def is_running
-    if @pid==0
+    if @pid == 0
       return false
     end
     print "Bridge PID " + @pid.to_s + " "
@@ -252,22 +246,22 @@ class Wlanbridge_instance
     result = `#{cmd}`
     if $?.success?
       puts "Bridge Running"
-      return true
+      true
     else
       @pid = 0
       puts "Bridge Not Running"
-      return false
+      false
     end
   end
 
-  def run(wlans,static_vids)
+  def run(wlans, static_vids)
     @wlans = wlans
 
     puts "Start the wlanbridge process"
-    cmd = '/opt/wlanbridge/bridge eth0 '
-    wlans.each do | wlan |
+    cmd = "/opt/wlanbridge/bridge eth0 "
+    wlans.each do |wlan|
       if static_vids.key?(wlan)
-        puts "static_vids[wlan]: "+ static_vids[wlan].inspect
+        puts "static_vids[wlan]: " + static_vids[wlan].inspect
         STDOUT.flush
         cmd = cmd + wlan + ":" + static_vids[wlan][:static_vid].to_s + ":" + static_vids[wlan][:ssid].to_s + " "
       else
@@ -275,32 +269,31 @@ class Wlanbridge_instance
       end
     end
 
-    cmd = cmd + " -f /tmp/wlanbridge.log"
+    cmd += " -f /tmp/wlanbridge.log"
     puts cmd
 
     @pid = Process.spawn(cmd)
     Process.detach(@pid)
 
-    print "Start wlanbridge: ",@pid," on ",wlans.to_s,"\n"
+    print "Start wlanbridge: ", @pid, " on ", wlans, "\n"
     @state = PROCESS_STATES::RUN
   end
 
-  def stop()
+  def stop
     if @pid > 0 and is_running
-      print "Stopping wlanbridge: ",@pid," on ",@wlan,"\n"
+      print "Stopping wlanbridge: ", @pid, " on ", @wlan, "\n"
       cmd = "pkill bridge"
-      #cmd = "kill -9 " + @pid.to_s
-      `#{ cmd }`
+      # cmd = "kill -9 " + @pid.to_s
+      `#{cmd}`
       @pid = 0
     end
     @state = PROCESS_STATES::DOWN
   end
 
   def get_pid
-    return pid
+    pid
   end
 end
-
 
 #################################################################
 #
@@ -318,13 +311,16 @@ class Radiusclient_instance
   end
 
   def is_running
-    if @pid==0
+    if @pid == 0
       return false
     end
 
     print "Checking Radius Client PID " + @pid.to_s + " "
-    retval = !!Process.kill(0, @pid) rescue false
-    return retval
+    begin
+      !!Process.kill(0, @pid)
+    rescue
+      false
+    end
   end
 
   def set_params(radius_server: nil, radius_secret: nil)
@@ -335,33 +331,30 @@ class Radiusclient_instance
     if !radius_secret.nil?
       @radius_secret = radius_secret
     end
-
   end
 
-  def run()
-
+  def run
     # check if already running
     if @pid > 0 and is_running
-      self.stop()
+      stop
     end
 
-
     # for stdout pipe redirection thread, kill if running
-    if (@thread != nil)
+    if !@thread.nil?
       Thread.kill(@thread)
       @thread = nil
     end
 
     puts "Start the Radius Client process"
 
-    #cmd = "./radius_client.rb"
+    # cmd = "./radius_client.rb"
     cmd = "ruby #{__dir__}/radius_client.rb"
     if !@radius_server.nil?
-      cmd = cmd + " --server #{@radius_server}"
+      cmd += " --server #{@radius_server}"
     end
 
     if !@radius_secret.nil?
-      cmd = cmd + " --secret #{@radius_secret}"
+      cmd += " --secret #{@radius_secret}"
     end
 
     puts "Starting RADIUS client: '#{cmd}'"
@@ -369,10 +362,10 @@ class Radiusclient_instance
     # create IO pipe reader/writer to redirect STDOUT from spawned process to the state machine
     reader, writer = IO.pipe
 
-    @pid = Process.spawn(cmd, :chdir=>__dir__, :out => writer, :err => writer)
+    @pid = Process.spawn(cmd, chdir: __dir__, out: writer, err: writer)
     Process.detach(@pid)
 
-    #this thread reads the output of the above spawned process and redirects it to STDOUT
+    # this thread reads the output of the above spawned process and redirects it to STDOUT
     writer.close
     @thread = Thread.new do
       loop do
@@ -381,21 +374,20 @@ class Radiusclient_instance
             lines = reader.read_nonblock(4096)
           rescue EOFError # EOF Error is when process is killed.
             @thread = nil
-            Thread.exit()
+            Thread.exit
           end
 
-          lines.split(/\n/).each do |line|
+          lines.split("\n").each do |line|
             line = line.strip
             if line.length > 0
               print "[RADIUSCLIENT #{@pid}] '#{line}'\n"
             end
           end
-
         rescue IO::WaitReadable
-          #IO.select([io])
-          #retry
+          # IO.select([io])
+          # retry
         end
-        sleep (0.1)
+        sleep(0.1)
       end
     end
 
@@ -403,23 +395,20 @@ class Radiusclient_instance
     @state = PROCESS_STATES::RUN
   end
 
-  def stop()
+  def stop
     if @pid > 0 and is_running
       puts "Stopping radius client: #{@pid}."
       cmd = "kill -9 " + @pid.to_s
-      `#{ cmd }`
+      `#{cmd}`
       @pid = 0
     end
     @state = PROCESS_STATES::DOWN
   end
 
   def get_pid
-    return pid
+    pid
   end
 end
-
-
-
 
 #################################################################
 #
@@ -428,8 +417,8 @@ end
 #################################################################
 class State
   def initialize(state, sleep_time = DEFAULT_SLEEP)
-    @my_state=state
-    @changed=true
+    @my_state = state
+    @changed = true
     @last_run_time_ms = 0
     @sleep_time_secs = sleep_time # in seconds
     @pause_between_state_change = false
@@ -437,41 +426,45 @@ class State
 
   def update(state, should_pause = false)
     if state != @my_state
-      @my_state=state
-      @changed=true
+      @my_state = state
+      @changed = true
       @pause_between_state_change = should_pause
     end
   end
 
   def get
-    return @my_state
+    @my_state
   end
 
   def is_changed
     if @changed
-      @changed=false
+      @changed = false
       return true
     end
-    return false
+    false
   end
 
   def should_sleep
-    return @pause_between_state_change
+    @pause_between_state_change
   end
 
   def now_ms
-    return Process.clock_gettime(Process::CLOCK_MONOTONIC) * 1000
+    Process.clock_gettime(Process::CLOCK_MONOTONIC) * 1000
   end
 
   def set_poll_time(poll_time_secs)
-    #Make sure passed param can be converted into an integer. (i.e. catch NIL, etc)
-    poll_time_secs = Integer(poll_time_secs) rescue false
-    if (poll_time_secs === false)
+    # Make sure passed param can be converted into an integer. (i.e. catch NIL, etc)
+    poll_time_secs = begin
+      Integer(poll_time_secs)
+    rescue
+      false
+    end
+    if poll_time_secs === false
       return
     end
 
     # We never want poll time to be less than 0.
-    if (poll_time_secs == 0)
+    if poll_time_secs == 0
       return
     end
 
@@ -479,19 +472,19 @@ class State
   end
 
   def sleep
-    sleep_time_ms = (@sleep_time_secs*1000 ) - (now_ms() - @last_run_time_ms)
+    sleep_time_ms = (@sleep_time_secs * 1000) - (now_ms - @last_run_time_ms)
     sleep_time_ms = sleep_time_ms.round
 
-    if (sleep_time_ms > 0)
+    if sleep_time_ms > 0
       puts "sleeping #{sleep_time_ms} ms"
       Kernel.sleep(sleep_time_ms.to_f / 1000)
     end
-    @last_run_time_ms = now_ms()
+    @last_run_time_ms = now_ms
   end
 end
 
 module MESSAGES
-  HELLO   = '/hello'
+  HELLO = "/hello"
 end
 
 #################################################################
@@ -499,7 +492,7 @@ end
 # Default Config - a template for hostapd configurations
 #
 #################################################################
-DEFAULT_CONFIG= { country_code: "US",
+DEFAULT_CONFIG = {country_code: "US",
                   interface: "dummy",
                   driver: "nl80211",
                   ssid: "cloudwifi",
@@ -519,9 +512,7 @@ DEFAULT_CONFIG= { country_code: "US",
                   wmm_enabled: 1,
                   ctrl_interface: "/var/run/hostapd",
                   ctrl_interface_group: 0,
-                  wpa_psk_file: "/tmp/hostapd.wpa_pmk_file"
-                  }
-
+                  wpa_psk_file: "/tmp/hostapd.wpa_pmk_file"}
 
 # Default rate for time between hellos (seconds)
 DEFAULT_RATE = 5
@@ -530,55 +521,55 @@ STATION_SCAN_TIME = 30
 
 # Get our gateway address
 def get_gateway
-  gw=`ip route | awk '/default/{print $3; exit}'`.chomp.presence || nil
+  gw = `ip route | awk '/default/{print $3; exit}'`.chomp.presence || nil
   begin
     r = IPAddr.new gw
   rescue IPAddr::InvalidAddressError
     puts "BAD Gateway"
     return nil
   end
-  return r.to_s
+  r.to_s
 end
 
 # Get ethernet MAC address
 def get_mac_address
   platform = RUBY_PLATFORM.downcase
-  mac=`ip link show dev eth0 | awk '/link/{print $2}'`
-  return mac.chomp
+  mac = `ip link show dev eth0 | awk '/link/{print $2}'`
+  mac.chomp
 end
 
-def get_os()
+def get_os
   os = `uname -r`
-  return os.strip
+  os.strip
 end
 
-def get_piglet_version()
+def get_piglet_version
   cmd = `apt info piglet 2>/dev/null`
 
   if cmd =~ /Version:\s+(.+)/
     return $1.strip
   end
-  return nil
+  nil
 end
 
-def get_cpu_info ()
+def get_cpu_info
   serial = `awk '/Serial/{print $3}' /proc/cpuinfo`.chomp
   model = `awk '/Model/{$1=$2=""; print $0}' /proc/cpuinfo`.chomp.lstrip
-  return {'serial' => serial, 'model' => model }
+  {"serial" => serial, "model" => model}
 end
 
-def get_wlan_list ()
+def get_wlan_list
   output = `iw dev`
   iwDev = output.split("\n")
-  interfaces = Array.new
+  interfaces = []
   i = 0
-  while  i < iwDev.length() do
+  while i < iwDev.length
     if iwDev[i] =~ /^phy#(\d)/
-      phy = "phy"+$1
-      i = i + 1
-      while i < iwDev.length() and not iwDev[i] =~ /^phy#\d/ do
+      phy = "phy" + $1
+      i += 1
+      while i < iwDev.length and !(iwDev[i] =~ /^phy#\d/)
         if iwDev[i] =~	/\s+Interface (wlan\d)/
-          interface=$1
+          interface = $1
         end
         if iwDev[i] =~ /addr ([a-fA-F0-9:]{17}|[a-fA-F0-9]{12})/
           mac = $1
@@ -589,108 +580,108 @@ def get_wlan_list ()
         if iwDev[i] =~ /.+txpower ([\d.]+)/
           txpower = $1
         end
-        i = i + 1
+        i += 1
       end
       if type == "managed" or type == "AP"
         interfaces.append({wlan: interface, phy: phy, mac: mac, txpower: txpower})
       end
     end
   end
-  return interfaces
+  interfaces
 end
 
 # Gather all the information about wifi hardware
-def gather_wlan_info()
+def gather_wlan_info
   interfaces = get_wlan_list
-  wlans = Array.new
-  interfaces.each  { |i_hash|
-    bands =  get_wlan_bands(i_hash[:phy])
+  wlans = []
+  interfaces.each { |i_hash|
+    bands = get_wlan_bands(i_hash[:phy])
     i_hash = i_hash.merge(bands)
     wlans.append(i_hash)
   }
-  return wlans
+  wlans
 end
 
 # Get modes and channel list of a given wifi device
 def get_wlan_bands(phy)
   iwlist = `iw list`
   # Find the interface
-  lines=iwlist.split(/\n+/)
+  lines = iwlist.split(/\n+/)
   i = 0
-  while i < lines.length() and not lines[i].include? "Wiphy "+phy
-    i=i+1
+  while i < lines.length and !lines[i].include? "Wiphy " + phy
+    i += 1
   end
-  i=i+1
+  i += 1
 
   # find each band
-  bands = Hash.new
-  while i < lines.length() and not lines[i].include? "Wiphy "
-    if lines[i]  =~ /^\s*Band\s(\d):.*/
+  bands = {}
+  while i < lines.length and !lines[i].include? "Wiphy "
+    if lines[i] =~ /^\s*Band\s(\d):.*/
       band = $1
 
-      i = i + 1
-      channels = Array.new
-      caps = Array.new
-      freqs = Array.new
-      power = Array.new
+      i += 1
+      channels = []
+      caps = []
+      freqs = []
+      power = []
       # Get capabilities for a band
-      while i < lines.length() and not lines[i] =~ /^\s*Band (\d):.*/ and not lines[i].include? ("Supported commands:") and not lines[i].include?("Wiphy ")
+      while i < lines.length and !(lines[i] =~ /^\s*Band (\d):.*/) and !lines[i].include?("Supported commands:") and !lines[i].include?("Wiphy ")
         # Find capabilities
         if lines[i].include?("Capabilities: 0x")
-          i = i + 1
-          while not lines[i].include?("Maximum") and lines[i] =~ /^\s+(\w.+)$/
+          i += 1
+          while !lines[i].include?("Maximum") and lines[i] =~ /^\s+(\w.+)$/
             caps.push($1)
-            i = i + 1
+            i += 1
           end
         end
 
         if lines[i].include?("Frequencies")
-          i = i + 1
+          i += 1
           while lines[i] =~ /^\s+\* \d+\sMHz/
-            if not lines[i].include?("disabled") and not lines[i].include?("radar") and not lines[i].include?("no IR")
+            if !lines[i].include?("disabled") and !lines[i].include?("radar") and !lines[i].include?("no IR")
               if lines[i] =~ /^\s+\* (\d+)\sMHz\s\[(\d+)\]\s+\(([\d.]+)/
                 channels.push($2)
                 freqs.push($1)
                 power.push($3)
               end
             end
-            i = i + 1
+            i += 1
           end
         end
-        if i < lines.length() and not lines[i]  =~ /^\s*Band\s(\d):.*/ and not lines[i].include?("Wiphy ")
-          i = i + 1
+        if i < lines.length and !(lines[i] =~ /^\s*Band\s(\d):.*/) and !lines[i].include?("Wiphy ")
+          i += 1
         end
       end
       # Finsh up a band
-      bands["band"+band]={:channels=>channels,:frequencies=>freqs,:power=>power,:capabilities=>caps}
+      bands["band" + band] = {channels: channels, frequencies: freqs, power: power, capabilities: caps}
 
     end
-    if i < lines.length() and not lines[i]  =~ /^\s*Band\s(\d):.*/ and not lines[i].include?("Wiphy ")
-      i = i + 1
+    if i < lines.length and !(lines[i] =~ /^\s*Band\s(\d):.*/) and !lines[i].include?("Wiphy ")
+      i += 1
     end
   end
-  return bands
+  bands
 end
 
 # Get the maximum interface number of the wlans
-def get_max_wlan ()
+def get_max_wlan
   output = `ip link show`
 
-  interfaces = Array.new
-  i=0
-  max_index=-1
+  interfaces = []
+  i = 0
+  max_index = -1
   max_interface = "none"
   output.each_line do |line|
-    #look for lines with wlan in it. Index of interface is in $1, index of wlan is in $2
+    # look for lines with wlan in it. Index of interface is in $1, index of wlan is in $2
     next unless line =~ /^([0-9]+):\swlan([0-9]+):/
 
     index = $2.to_i
-    if (index > max_index)
+    if index > max_index
       max_index = index
       max_interface = "wlan#{index}"
     end
   end
-  return max_interface
+  max_interface
 end
 
 # Get modes and channel list
@@ -700,34 +691,34 @@ def get_hw_info
 
   # find max interface
   iwlist.each_line do |line|
-    if line =~ /Wiphy/
+    if /Wiphy/.match?(line)
       i = line =~ / phy/
       if i
-        itf = line[i+1..-1].chomp
-        max_if = max_if > itf ? max_if : itf
+        itf = line[i + 1..-1].chomp
+        max_if = (max_if > itf) ? max_if : itf
       end
     end
   end
   # Find the interface
-  lines=iwlist.split(/\n+/)
+  lines = iwlist.split(/\n+/)
   i = 0
-  while i < lines.length() and not lines[i].include? max_if
-    i=i+1
+  while i < lines.length and !lines[i].include? max_if
+    i += 1
   end
-  i=i+1
+  i += 1
 
   # Find the frequencies
   # g is for channels under 15,
   # a for other channels (for now)
-  chan_a = Array.new
-  chan_g = Array.new
-  while i < lines.length() and not lines[i].include? "Wiphy phy"
+  chan_a = []
+  chan_g = []
+  while i < lines.length and !lines[i].include? "Wiphy phy"
 
     # ignore radar for now
-    if  not lines[i].include? "radar" and not lines[i].include? "disable"
-      chan_info = lines[i].scan /(\s\*\s\d+\sMHz\s\[)(\d+)/
+    if !lines[i].include? "radar" and !lines[i].include? "disable"
+      chan_info = lines[i].scan(/(\s\*\s\d+\sMHz\s\[)(\d+)/)
 
-      if  chan_info.instance_of? Array  and chan_info.any?
+      if chan_info.instance_of? Array and chan_info.any?
         chan = chan_info[0][1].to_i
         if chan <= 14
           chan_g.push(chan)
@@ -736,27 +727,26 @@ def get_hw_info
         end
       end
     end
-    i=i+1
+    i += 1
   end
-  result = {:g=>chan_g,:a=>chan_a}
-  return result
+  {g: chan_g, a: chan_a}
 end
 
 ###########################################################
 # get_stations - given an interface return a list of stations
 # Including all information available.  Minimum is MAC addresses
 ############################################################
-def get_stations(interface,channel)
+def get_stations(interface, channel)
   @cmd = "iw dev #{interface} station dump"
   puts @cmd
-  @station_list = `#{ @cmd }`
+  @station_list = `#{@cmd}`
   @lines = @station_list.split("\n")
   @stations = {}
   @station = {}
   @mac = ""
   i = 0
-  while i < @lines.length() do
-    #puts @lines[i]
+  while i < @lines.length
+    # puts @lines[i]
     # if this is a new station, save the old
     if @lines[i] =~ /Station\s/ and @mac.length > 0
       @stations[@mac] = @station
@@ -766,65 +756,64 @@ def get_stations(interface,channel)
     if @lines[i] =~ /Station\s(.+)\s\(on (.+)\)/
       @mac = $1
       @station["interface"] = $2
-      @station["channel"]=channel
+      @station["channel"] = channel
     end
     if @lines[i] =~ /\s(.+):\s(.+)/
       @station[$1] = $2.strip
     end
-    i = i + 1
+    i += 1
   end
   if @mac.length > 0
     @stations[@mac] = @station
   end
-  return @stations
+  @stations
 end
 
 # Given a list of interfaces gather all station (client) information
 # Into a hash
 # Send a hash of wlans and channels.
-def gather_station_info(interface_channels,connection_states,hostapd_procs)
-
+def gather_station_info(interface_channels, connection_states, hostapd_procs)
   # Get the current connection states from the connetion log
   update_connections(connection_states)
-  puts "CONNECTIONS:"+connection_states.to_s
+  puts "CONNECTIONS:" + connection_states.to_s
 
   @all_stations = {}
-  interface_channels.each { | wlan, channel |
-    #get the stations for a given wlan
-    @stations = get_stations(wlan,channel)
-    #puts "STATIONS! #{@stations}"
+  interface_channels.each { |wlan, channel|
+    # get the stations for a given wlan
+    @stations = get_stations(wlan, channel)
+    # puts "STATIONS! #{@stations}"
     # Merge results with latest connection state
-    @stations.each { | mac, station |
+    @stations.each { |mac, station|
       station_state = connection_states[mac]
-      #puts "STATION STATE #{mac} #{station_state}"
-      #puts "STATION DATA #{@stations[mac]}"
-      if not station_state.nil?
+      # puts "STATION STATE #{mac} #{station_state}"
+      # puts "STATION DATA #{@stations[mac]}"
+      if !station_state.nil?
         @stations[mac] = @stations[mac].merge(station_state)
       end
       @stations[mac]["ssid"] = hostapd_procs[@stations[mac]["interface"]].ssid
-      puts " @pmk_to_user_id #{ @pmk_to_user_id}"
+      puts " @pmk_to_user_id #{@pmk_to_user_id}"
       puts "USER: #{@pmk_to_user_id[@stations[mac]["pmk"]]}"
       @stations[mac]["user_id"] = @pmk_to_user_id[ @stations[mac]["pmk"]]
     }
 
     @all_stations = @all_stations.merge(@stations)
     # Add in all disconnected stations if we were already assocated
-    #connection_states.each { | mac, station |
+    # connection_states.each { | mac, station |
     #  if station["event"] == "disassoc"
     #    @all_stations[mac] = station
     #  end
-    #}
-    #puts "STATIONS: #{ @all_stations }"
+    # }
+    # puts "STATIONS: #{ @all_stations }"
 
     # Clear connection states for stations no longer present
-    #connection_states.keys.each { | mac |
+    # connection_states.keys.each { | mac |
     #  if not @all_stations.key? mac
     #    connection_states.delete(mac)
     #    puts "Delete #{mac} from connection states"
     #  end
-    #}
+    # }
   }
-  return @all_stations
+  @all_stations
 end
 
 #######################################################################
@@ -833,45 +822,41 @@ end
 CONNECTION_LOG = "/tmp/connections.log"
 
 def update_connections(connections)
-  begin
-    File.open(CONNECTION_LOG).each do |line|
-      puts "CONNECTION: #{line}"
-      connection = JSON.parse(line)
-      if connection.key? "mac"
-        mac = connection["mac"].downcase
-        puts "CON: #{mac}, #{connection}"
-        connections[mac] = connection
-      end
+  File.open(CONNECTION_LOG).each do |line|
+    puts "CONNECTION: #{line}"
+    connection = JSON.parse(line)
+    if connection.key? "mac"
+      mac = connection["mac"].downcase
+      puts "CON: #{mac}, #{connection}"
+      connections[mac] = connection
     end
-    # Clear the file
-    puts "CLEAR FILE"
-    `rm #{CONNECTION_LOG}`
-    #File.open(CONNECTION_LOG,'w') {|file| file.truncate(0) }
-
-  rescue
-    puts "ERROR in processing connections.log file"
-    # nothing else to do here
   end
+  # Clear the file
+  puts "CLEAR FILE"
+  `rm #{CONNECTION_LOG}`
+  # File.open(CONNECTION_LOG,'w') {|file| file.truncate(0) }
+rescue
+  puts "ERROR in processing connections.log file"
+  # nothing else to do here
 end
-
 
 #######################################################################
 # Local AP scanning and Auto channel setting code
 #######################################################################
 # Channels that overlap. we only use 1, 6, 11
-OVERLAPPING_CHANNELS = {2 => [1,6], 3 => [1,6], 4 => [1,6], 5 => [1,6], 7 => [6,1],
-                        8 => [6,11], 9 => [6,11], 10 => [6,11], 12 => [11,14],
-                        13 => [11,14]}
+OVERLAPPING_CHANNELS = {2 => [1, 6], 3 => [1, 6], 4 => [1, 6], 5 => [1, 6], 7 => [6, 1],
+                        8 => [6, 11], 9 => [6, 11], 10 => [6, 11], 12 => [11, 14],
+                        13 => [11, 14]}
 
 #######################################################################
 # overlap_channels - return the real channels this channel affect
 #######################################################################
 def overlap_channels(channel)
   if OVERLAPPING_CHANNELS.key?(channel)
-    print "Fucking overlapping channel: ",channel,"\n"
-    return OVERLAPPING_CHANNELS[channel]
+    print "Fucking overlapping channel: ", channel, "\n"
+    OVERLAPPING_CHANNELS[channel]
   else
-    return[channel]
+    [channel]
   end
 end
 
@@ -879,76 +864,74 @@ end
 # get_ap_list - Get a list of APs visible as a hash over AP addresses
 # interface is the interface to use to do the scan
 #######################################################################
-def scan_for_aps (interface)
-    # First let's make sure the interface is up
-    cmd = "ifconfig #{interface} up"
-    print "Bringing up interface: #{ cmd }\n"
-    `#{ cmd }`
-    puts "After bringing interface up..."
-    
-    @ap_list = `iw dev #{interface} scan`
-    @lines = @ap_list.split("\n")
-    @ap_data = {}
-    @address = ""
-    @ssid = ""
-    @channel = ""
-    @signal=""
-    @frequency = ""
-    @ht_width = ""
-    @ht_protection = ""
-    i = 0
-    while i < @lines.length() do
-      if @lines[i] =~ /BSS (.+)\(/
-        if @address != ""
-          # Convert overlapping channels to actual channel(s)
-          @cell = {"SSID" => @ssid, "channel" => @channel,
-                   "frequency" => @frequency, "ht_width" => @ht_width,
-                   "signal" => @signal, "ht_protection" => @ht_protection}
-          @ap_data[@address] = @cell
+def scan_for_aps(interface)
+  # First let's make sure the interface is up
+  cmd = "ifconfig #{interface} up"
+  print "Bringing up interface: #{cmd}\n"
+  `#{cmd}`
+  puts "After bringing interface up..."
 
-          # Clear out for next
-          @address = ""
-          @ssid = ""
-          @channel = ""
-          @signal=""
-          @frequency = ""
-          @ht_width = ""
-          @ht_protection = ""
-        end
-        @address = $1
+  @ap_list = `iw dev #{interface} scan`
+  @lines = @ap_list.split("\n")
+  @ap_data = {}
+  @address = ""
+  @ssid = ""
+  @channel = ""
+  @signal = ""
+  @frequency = ""
+  @ht_width = ""
+  @ht_protection = ""
+  i = 0
+  while i < @lines.length
+    if @lines[i] =~ /BSS (.+)\(/
+      if @address != ""
+        # Convert overlapping channels to actual channel(s)
+        @cell = {"SSID" => @ssid, "channel" => @channel,
+                 "frequency" => @frequency, "ht_width" => @ht_width,
+                 "signal" => @signal, "ht_protection" => @ht_protection}
+        @ap_data[@address] = @cell
+
+        # Clear out for next
+        @address = ""
+        @ssid = ""
+        @channel = ""
+        @signal = ""
+        @frequency = ""
+        @ht_width = ""
+        @ht_protection = ""
       end
-      if @lines[i] =~ /\sSSID: (.+)/
-        @ssid = $1
-      end
-      if @lines[i] =~ /\sprimary channel: (\d+)/
-        @channel = $1.to_i
-      end
-      if @lines[i] =~ /\sfreq: (.+)/
-        @frequency = $1
-      end
-      if @lines[i] =~ /\ssignal: (.+) dBm/
-        @signal = $1.to_f
-      end
-      if @lines[i] =~ /\s* STA channel width: (.+)/
-        @ht_width = $1
-      end
-      if @lines[i] =~ /\s* HT protection: (.+)/
-        @ht_protection = $1
-      end
-      i += 1
+      @address = $1
     end
-    if not @ap_data.key?(@address)
-      @cell = {"SSID" => @ssid, "channel" => @channel,
-               "frequency" => @frequency, "ht_width" => @ht_width,
-               "signal" => @signal, "ht_protection" => @ht_protection}
-      @ap_data[@address] = @cell
+    if @lines[i] =~ /\sSSID: (.+)/
+      @ssid = $1
     end
-    if @address != ""
-      return @ap_data
+    if @lines[i] =~ /\sprimary channel: (\d+)/
+      @channel = $1.to_i
     end
+    if @lines[i] =~ /\sfreq: (.+)/
+      @frequency = $1
+    end
+    if @lines[i] =~ /\ssignal: (.+) dBm/
+      @signal = $1.to_f
+    end
+    if @lines[i] =~ /\s* STA channel width: (.+)/
+      @ht_width = $1
+    end
+    if @lines[i] =~ /\s* HT protection: (.+)/
+      @ht_protection = $1
+    end
+    i += 1
+  end
+  if !@ap_data.key?(@address)
+    @cell = {"SSID" => @ssid, "channel" => @channel,
+             "frequency" => @frequency, "ht_width" => @ht_width,
+             "signal" => @signal, "ht_protection" => @ht_protection}
+    @ap_data[@address] = @cell
+  end
+  if @address != ""
+    @ap_data
+  end
 end
-
-
 
 #######################################################################
 # select channel - find a channel for a interface
@@ -959,45 +942,45 @@ end
 #
 #######################################################################
 
-def select_channel(interface,channels,channel)
-  if channels.is_a? String 
-    channels = channels.split(',')
+def select_channel(interface, channels, channel)
+  if channels.is_a? String
+    channels = channels.split(",")
   end
 
   if channels[0].is_a? String
-     channels.map!(&:to_i)
+    channels.map!(&:to_i)
   end
   # Check for corner cases
-  if channels.length() == 0
+  if channels.length == 0
     return channel
   end
-  if channels.length() == 1
+  if channels.length == 1
     return channels[0]
   end
 
   @avail_channels = channels.to_set
 
   @scan = scan_for_aps(interface)
-  #print @scan,"\n"
+  # print @scan,"\n"
   if @scan.nil?
     print "No APs found, choosing a random station\n"
-    return channels.shuffle.first
+    return channels.sample
   end
   # create a hash of ap channels, and the signal strengths
   # If the channel already exists with a stronger signal, ignore weaker
   @channel_levels = {}
   @used_channels = Set[]
-  @scan.each do |mac,info|
+  @scan.each do |mac, info|
     # convert overlapping channels into two real channels
     @chans = overlap_channels(info["channel"])
     @chans.each do |chan|
       @used_channels.add(chan)
       if @channel_levels.key?(chan)
-        if  @channel_levels[chan] < info["signal"]
-          @channel_levels[chan]= info["signal"]
+        if @channel_levels[chan] < info["signal"]
+          @channel_levels[chan] = info["signal"]
         end
       else
-        @channel_levels[chan]= info["signal"]
+        @channel_levels[chan] = info["signal"]
       end
     end
   end
@@ -1006,23 +989,21 @@ def select_channel(interface,channels,channel)
   @unused = @avail_channels - @used_channels
   print "unused:", @unused, "\n"
   if @unused.length > 0
-    return @unused.to_a.shuffle.first
+    return @unused.to_a.sample
   end
   puts "No unused channels, finding best"
 
   # Scan through channels to find the one with the weakest signal
   @least_channel = 0
   @least_signal = 0
-  @channel_levels.each do | chan, sig |
-    if @avail_channels.include?(chan)  and sig < @least_signal
+  @channel_levels.each do |chan, sig|
+    if @avail_channels.include?(chan) and sig < @least_signal
       @least_signal = sig
       @least_channel = chan
     end
   end
-  return @least_channel
-
+  @least_channel
 end
-
 
 #################################################################
 #
@@ -1033,35 +1014,33 @@ end
 #################################################################
 
 # post message to wifictlr. Expect JSON in return.
-def send_cloud_request(wifictlr,endpoint, postdata)
+def send_cloud_request(wifictlr, endpoint, postdata)
   body = postdata.to_json
-
 
   url = "http://#{wifictlr}:#{PORT}/api/v1/wificlients/#{endpoint}"
   puts "url: #{url}"
-  #puts "SEND: #{body}"
-  header = { 'Content-Type' => 'application/json' }
+  # puts "SEND: #{body}"
+  header = {"Content-Type" => "application/json"}
 
   response_error = {
-    status:   "httperror",
-    error:    nil
+    status: "httperror",
+    error: nil
   }
 
   begin
     result = Client.post(url,
-                         body: body,
-                         headers: header,
-                         timeout: 5         #timeout is in seconds
-                        )
+      body: body,
+      headers: header,
+      timeout: 5)         # timeout is in seconds
   rescue HTTParty::Error, SocketError => e
-    response_error[:error] = "HTTParty::Error: #{ e.messages} "
+    response_error[:error] = "HTTParty::Error: #{e.messages} "
     return response_error
-  rescue StandardError => error
+  rescue => error
     response_error[:error] = "HTTParty::Error: #{error}"
     return response_error
   end
 
-  if (result.code != 200 and result.code != 201)
+  if result.code != 200 and result.code != 201
     response_error[:error] = "HTTParty: non 200 error: #{result.code}"
     return response_error
   end
@@ -1069,43 +1048,41 @@ def send_cloud_request(wifictlr,endpoint, postdata)
   begin
     result.parsed_response
   rescue JSON::ParserError => e
-    response_error[:error] = "JSON::Error: #{ e.messages} "
+    response_error[:error] = "JSON::Error: #{e.messages} "
     return response_error
   end
 
-  r = result=result.parsed_response['json']
-  return r
+  result = result.parsed_response["json"]
 end
 
 # get message to wifictlr. Expect JSON in return.
-def get_cloud_request(wifictlr,endpoint, postdata)
+def get_cloud_request(wifictlr, endpoint, postdata)
   body = postdata.to_json
 
   url = "http://#{wifictlr}:#{PORT}/api/v1/wificlients/#{endpoint}"
-  
+
   puts "url: #{url}"
-  header = { 'Content-Type' => 'application/json' }
+  header = {"Content-Type" => "application/json"}
 
   response_error = {
-    status:   "httperror",
-    error:    nil
+    status: "httperror",
+    error: nil
   }
 
   begin
     result = Client.get(url,
-                         body: body,
-                         headers: header,
-                         timeout: 5         #timeout is in seconds
-                        )
+      body: body,
+      headers: header,
+      timeout: 5)         # timeout is in seconds
   rescue HTTParty::Error, SocketError => e
-    response_error[:error] = "HTTParty::Error: #{ e.messages} "
+    response_error[:error] = "HTTParty::Error: #{e.messages} "
     return response_error
-  rescue StandardError => error
+  rescue => error
     response_error[:error] = "HTTParty::Error: #{error}"
     return response_error
   end
 
-  if (result.code != 200 and result.code != 201)
+  if result.code != 200 and result.code != 201
     response_error[:error] = "HTTParty: non 200 error: #{result.code}"
     return response_error
   end
@@ -1113,86 +1090,79 @@ def get_cloud_request(wifictlr,endpoint, postdata)
   begin
     result.parsed_response
   rescue JSON::ParserError => e
-    response_error[:error] = "JSON::Error: #{ e.messages} "
+    response_error[:error] = "JSON::Error: #{e.messages} "
     return response_error
   end
 
-  r = result=result.parsed_response['json']
+  r = result = result.parsed_response["json"]
   puts "send_cloud_request result######: #{r}"
-  return r
+  r
 end
 
 # Send a hello message to the wifictlr
-def send_cloud_hello_mesg(wifictlr,mac)
-  wlan=get_max_wlan()
-  os=get_os();
+def send_cloud_hello_mesg(wifictlr, mac)
+  wlan = get_max_wlan
+  os = get_os
 
-  #piglet_version = get_piglet_version()
+  # piglet_version = get_piglet_version()
 
-  cpu=get_cpu_info
+  cpu = get_cpu_info
   # get radio info
-  channels=get_hw_info().to_json
+  channels = get_hw_info.to_json
   wlans = gather_wlan_info
-  version_str = MAJOR.to_s+"."+MINOR.to_s+"."+REVISION.to_s
+  version_str = MAJOR.to_s + "." + MINOR.to_s + "." + REVISION.to_s
   puts "VERSION: #{version_str}"
   @my_ip_add = `hostname -I | awk '{print $1}'`.chomp
-  body = { mac: mac,
-           version: version_str,
-           wlans: wlans,
-           os: os,
-           model: cpu['model'],
-           serial: cpu['serial'],
-           ipaddress: @my_ip_add
-         }
+  body = {mac: mac,
+          version: version_str,
+          wlans: wlans,
+          os: os,
+          model: cpu["model"],
+          serial: cpu["serial"],
+          ipaddress: @my_ip_add}
 
-  print "Hello: ", body.to_json,"\n"
-  result = send_cloud_request(wifictlr, "hello", body)
-
-  return result
+  print "Hello: ", body.to_json, "\n"
+  send_cloud_request(wifictlr, "hello", body)
 end
 
 # Send a config message to the wifictlr
-def send_cloud_conf_mesg(wifictlr,mac,start)
-  config = { mac: mac,
-             start: start
-             #config_hashes: conf_hashes,
-             #pmk_hash: pmk_hash
-           }
-  print "Config request:", config.to_json,"\n"
+def send_cloud_conf_mesg(wifictlr, mac, start)
+  config = {mac: mac,
+            start: start}
+  # config_hashes: conf_hashes,
+  # pmk_hash: pmk_hash
+  print "Config request:", config.to_json, "\n"
 
   result = send_cloud_request(wifictlr, "get_config", config)
-#  result = send_cloud_request(wifictlr, "jsontests/1", config)
-  print "Config results:",result.to_json,"\n"
-  return result
+  #  result = send_cloud_request(wifictlr, "jsontests/1", config)
+  print "Config results:", result.to_json, "\n"
+  result
 end
 
 # Send an alivemessage to the wifictlr
-def send_cloud_alive_mesg(wifictlr,mac,channels,uptime)
-  alive = { mac: mac,
-            #config_hashes: conf_hashes,
-            #pmk_hash: pmk_hash,
-            channels: channels,
-            uptime: uptime
-          }
-  print "Alive request:", alive.to_json,"\n"
+def send_cloud_alive_mesg(wifictlr, mac, channels, uptime)
+  alive = {mac: mac,
+           # config_hashes: conf_hashes,
+           # pmk_hash: pmk_hash,
+           channels: channels,
+           uptime: uptime}
+  print "Alive request:", alive.to_json, "\n"
 
-  result = send_cloud_request(wifictlr,"alive", alive)
-  print "Alive results:",result.to_json,"\n"
-  return result
+  result = send_cloud_request(wifictlr, "alive", alive)
+  print "Alive results:", result.to_json, "\n"
+  result
 end
 
 # Send an wireless clients message to the wifictlr
-def send_cloud_clients_mesg(wifictlr,clients)
-  result = send_cloud_request(wifictlr,"update_wireless_clients", clients)
-  return result
+def send_cloud_clients_mesg(wifictlr, clients)
+  send_cloud_request(wifictlr, "update_wireless_clients", clients)
 end
-
 
 # Class to allow unchecked https
 class Client
   include HTTParty
 
-  #verify:false disables SSL cert checking
+  # verify:false disables SSL cert checking
   default_options.update(verify: false)
 end
 
@@ -1202,27 +1172,26 @@ end
 #
 #################################################################
 def write_pmk(pmks)
-  #puts "PMK:",pmks
+  # puts "PMK:",pmks
   # Write out the new file
-  File.open(PMK_FILE,"w") { |f|
-    #f.write("# Hash: "+hash+"\n")
+  File.open(PMK_FILE, "w") { |f|
+    # f.write("# Hash: "+hash+"\n")
     f.write("# Warning - This file is auto generated.  Do not modify\n")
     pmks.each do |pmk_entry|
       if pmk_entry.key?("user_id") and pmk_entry.key?("pmk")
-        f.write(" pmk="+pmk_entry["pmk"]+"\n")
+        f.write(" pmk=" + pmk_entry["pmk"] + "\n")
         @pmk_to_user_id[pmk_entry["pmk"]] = pmk_entry["user_id"]
       elsif pmk_entry.key?("user_id") and pmk_entry.key?("vlan_id") and pmk_entry.key?("pmk")
-        f.write(" vlan_id="+pmk_entry["vlan_id"].to_s+" pmk="+pmk_entry["pmk"]+"\n")
+        f.write(" vlan_id=" + pmk_entry["vlan_id"].to_s + " pmk=" + pmk_entry["pmk"] + "\n")
       elsif pmk_entry.key?("vlan_id") and pmk_entry.key?("pmk") # No Login/account association (Normal for PSK WLAN)
-        f.write("vlan_id="+pmk_entry["vlan_id"].to_s+" pmk="+pmk_entry["pmk"]+"\n")
+        f.write("vlan_id=" + pmk_entry["vlan_id"].to_s + " pmk=" + pmk_entry["pmk"] + "\n")
       else
-        puts "Bad PMK entry: #{ pmk_entry }"
+        puts "Bad PMK entry: #{pmk_entry}"
       end
     end
   }
-  #puts "PMK to USER: #{ @pmk_to_user_id}"
+  # puts "PMK to USER: #{ @pmk_to_user_id}"
 end
-
 
 #################################################################
 #
@@ -1230,8 +1199,8 @@ end
 # Returns static VLAN number or -1, ssid or "", channel or ""
 #
 #################################################################
-def write_config(config,hostapd_procs)
-  print "Configuration sent: ",config,"\n"
+def write_config(config, hostapd_procs)
+  print "Configuration sent: ", config, "\n"
   @chan_list = []
   @auto_channel = 0
   new_config = DEFAULT_CONFIG.dup
@@ -1239,8 +1208,7 @@ def write_config(config,hostapd_procs)
   static_vid = -1
   ssid = nil
 
-  config.each do | key,value |
-
+  config.each do |key, value|
     case key
     when "ssid"
       new_config[:ssid] = value
@@ -1250,25 +1218,25 @@ def write_config(config,hostapd_procs)
       @interface = value
 
     when "channel"
-      if not value.nil?
+      if !value.nil?
         new_config[:channel] = value
         @auto_channel = value
       end
 
     when "hw_mode"
-      if not value.nil?
+      if !value.nil?
         new_config[:hw_mode] = value.downcase
       end
 
     when "channel_24"
-      if not value.nil?
+      if !value.nil?
         new_config[:channel] = value
         channel = true
         new_config[:hw_mode] = "g"
       end
 
     when "channel_5"
-      if not channel and not value.nil?
+      if !channel and !value.nil?
         new_config[:channel] = value.to_s
         channel = true
         new_config[:hw_mode] = "a"
@@ -1287,12 +1255,12 @@ def write_config(config,hostapd_procs)
       end
 
     when "open_vid"
-      if not value.nil?
+      if !value.nil?
         static_vid = value
       end
 
     when "channel_list"
-      if not value.nil?
+      if !value.nil?
         @chan_list = value
       end
 
@@ -1304,7 +1272,7 @@ def write_config(config,hostapd_procs)
     end
   end
 
-  if not @ssid.nil? and not @interface.nil?
+  if !@ssid.nil? and !@interface.nil?
     hostapd_procs[@interface].set_ssid(@ssid)
   end
 
@@ -1313,31 +1281,28 @@ def write_config(config,hostapd_procs)
   if @chan_list.length > 0
     print "candidate channels:", @chan_list, "\n"
     # Stop the wlan for channel scan
-    if not hostapd_procs.nil?() and hostapd_procs.key?(@interface) and hostapd_procs[@interface].is_running()
-      hostapd_procs[@interface].stop()
+    if !hostapd_procs.nil? and hostapd_procs.key?(@interface) and hostapd_procs[@interface].is_running
+      hostapd_procs[@interface].stop
     end
-    @auto_channel = select_channel(@interface,@chan_list,channel)
-    print "Auto channel: ", @auto_channel,"\n"
+    @auto_channel = select_channel(@interface, @chan_list, channel)
+    print "Auto channel: ", @auto_channel, "\n"
     new_config[:channel] = @auto_channel
   end
 
-
-
-  print "New Config",new_config,"\n"
+  print "New Config", new_config, "\n"
   # Write out the new file
-  config_file = "/tmp/hostapd."+new_config[:interface]+".conf"
-  File.open(config_file,"w") { |f|
-    #f.write("# Hash: "+hash+"\n")
+  config_file = "/tmp/hostapd." + new_config[:interface] + ".conf"
+  File.open(config_file, "w") { |f|
+    # f.write("# Hash: "+hash+"\n")
     f.write("# Warning - This file is auto generated.  Do not modify\n")
     f.write("ctrl_interface=/tmp/hostapd\n")
-    new_config.each do |key,value|
-      if not value.nil?
-        f.write(key.to_s+"="+value.to_s+"\n")
+    new_config.each do |key, value|
+      if !value.nil?
+        f.write(key.to_s + "=" + value.to_s + "\n")
       end
     end
   }
-  return static_vid, ssid, @auto_channel
-
+  [static_vid, ssid, @auto_channel]
 end
 
 # Delete /tmp/hostap.conf/
@@ -1356,21 +1321,19 @@ end
 # Process the passed poll wait time
 #
 #################################################################
-def process_wait_time(wait,data)
+def process_wait_time(wait, data)
   if data.nil? then return nil end
 
-  if data.key?('poll_time')
-    new_wait=result['poll_timer'].to_i
+  if data.key?("poll_time")
+    new_wait = result["poll_timer"].to_i
     if new_wait.is_a? Integer
       wait = new_wait
-      print "New wait time: ",wait,"\n"
+      print "New wait time: ", wait, "\n"
       wait = 5 # force to 5 for testing
     end
   end
-  return wait
+  wait
 end
-
-
 
 #################################################################
 #
@@ -1394,56 +1357,56 @@ def pifi_management
   # kill hostapd, wlanbridge and radius client by name
   `pkill -f hostapd`
   `pkill -f wlanbridge`
-  #`pkill -f radius_client.rb`
+  # `pkill -f radius_client.rb`
 
-  #sleep to allow system to recover from killing hostapd and wlanbridge.
+  # sleep to allow system to recover from killing hostapd and wlanbridge.
   sleep(1)
 
   # The latest config and pmk hash
-  #config_hashes = Hash.new
-  #pmk_hash = "FFFFFFFFFFFF"
+  # config_hashes = Hash.new
+  # pmk_hash = "FFFFFFFFFFFF"
   pmk_file = nil
   new_pmk = false
 
   # Create objects to manage processes
-  hostapd_procs = Hash.new
+  hostapd_procs = {}
 
   interfaces = get_wlan_list
   interfaces.each do |interface|
-    print "New interface ",interface[:wlan],"\n"
+    print "New interface ", interface[:wlan], "\n"
     hostapd_procs[interface[:wlan]] = Hostapd_instance.new(interface[:wlan])
   end
-  wlanbridge_proc = Wlanbridge_instance.new()
-  #radiusclient_proc = Radiusclient_instance.new()
+  wlanbridge_proc = Wlanbridge_instance.new
+  # radiusclient_proc = Radiusclient_instance.new()
 
   # Get our local MAC and controller address
   controller_ip = CONTROLLER
-  #controller_ip = get_gateway
+  # controller_ip = get_gateway
   puts "IP: " + controller_ip
   mac = get_mac_address
 
   # Get my ip address
   @my_ip_add = `hostname -I | awk '{print $1}'`.chomp
   puts "My IP: #{@my_ip_add}"
-  
-  #radiusclient_proc.set_params(radius_server: controller_ip)
+
+  # radiusclient_proc.set_params(radius_server: controller_ip)
 
   # time to wait between polls
   wait = DEFAULT_RATE
 
   # Start by wiping the configeration and pmk file
-  clear_ap_config()
-  clear_pmk_file()
+  clear_ap_config
+  clear_pmk_file
 
   # State is "START" unless we don't know our gateway (wifictlr controller)  yet.
-  if controller_ip.nil?
-    state = State.new(STATES::WAITGW)
+  state = if controller_ip.nil?
+    State.new(STATES::WAITGW)
   else
-    state = State.new(STATES::START)
+    State.new(STATES::START)
   end
 
   # List of current active interfaces
-  interfaces = Array.new
+  interfaces = []
 
   # Set time for station scan to now
   @next_station_scan = Time.now
@@ -1462,11 +1425,11 @@ def pifi_management
 
     # Sleep until next time unless it is a new state
     # TODO: A SYNC from wifictlr needs to end sleep
-    if not state.is_changed
-      #puts "No state change recorded"
-      state.sleep()
+    if !state.is_changed
+      # puts "No state change recorded"
+      state.sleep
     elsif state.should_sleep
-      state.sleep()
+      state.sleep
     end
 
     # Update timestamp on pifi.pid for overseerer to make sure this is still running.
@@ -1489,9 +1452,9 @@ def pifi_management
         puts "WAITGW State"
         controller_ip = CONTROLLER
         if controller_ip.nil?
-        # No controller IP yet, wait 10 seconds
+          # No controller IP yet, wait 10 seconds
           state.set_poll_time(10)
-          puts "Waiting for Controller IP: #{ controller_ip }"
+          puts "Waiting for Controller IP: #{controller_ip}"
         else
           state.update(STATES::START)
           puts "Found controller IP: " + controller_ip
@@ -1504,26 +1467,25 @@ def pifi_management
         @start_time = 0
         proc_restart_failures = 0
 
-        result = send_cloud_hello_mesg(controller_ip,mac)
-        puts "Reply:",result
+        result = send_cloud_hello_mesg(controller_ip, mac)
+        puts "Reply:", result
 
         if result.nil? then break end
 
-        wait = process_wait_time(wait,result)
+        wait = process_wait_time(wait, result)
 
-
-#        if result['status'] == 'approved'
-        if result['status'] == 'approved' or result['status'] == 'registered'
+        #        if result['status'] == 'approved'
+        if result["status"] == "approved" or result["status"] == "registered"
           state.update(STATES::CONFIG)
-        elsif result['status'] == 'registered' #registered within controller but not approved. Stay in START state
+        elsif result["status"] == "registered" # registered within controller but not approved. Stay in START state
 
         else # unknown response status
-          puts "Bad HTTP response #{result}  from #{ controller_ip } "
+          puts "Bad HTTP response #{result}  from #{controller_ip} "
           break
         end
 
         poll_timer = result["poll_timer"]
-        #puts "setting poll timer to #{poll_timer} secs."
+        # puts "setting poll timer to #{poll_timer} secs."
         state.set_poll_time(poll_timer)
       end # end of 1.times do
 
@@ -1537,14 +1499,14 @@ def pifi_management
         puts "CONFIG state"
         @start_time = 0
         static_vids = {}
-        result = send_cloud_conf_mesg(controller_ip,mac,start)
+        result = send_cloud_conf_mesg(controller_ip, mac, start)
         wait = process_wait_time(wait, result)
 
         if result.nil?
           response_failures += 1
-          puts "nothing returns from wifictlr, retries: #{ response_failures }"
+          puts "nothing returns from wifictlr, retries: #{response_failures}"
           if response_failures > CLOUD_RETRIES
-            puts "#{ CLOUD_RETRIES } falures, disabling WiFi"
+            puts "#{CLOUD_RETRIES} falures, disabling WiFi"
             state.update(STATES::DISABLING)
             response_failures = 0
           end
@@ -1552,125 +1514,122 @@ def pifi_management
         end
 
         status = result["status"]
-        if (status != "success")
+        if status != "success"
           puts "config response status '#{status}'. Putting PIFI into Disabling state"
           state.update(STATES::DISABLING)
           break
         end
 
-
         # set radius secret
-        #if !result["radius_secret"].nil?
+        # if !result["radius_secret"].nil?
 
         #  puts "@@@@ Setting Radius Secret: " + result["radius_secret"]
         #  radiusclient_proc.set_params(radius_secret: result["radius_secret"])
-        #end
-
+        # end
 
         pmk = result["pmk"]
 
         new_pmk = false
         # optionally write a new pmkile
-#        if ((not pmk.nil?) and (pmk_hash != result["pmk_hash"]))
-        if (not pmk.nil?)
-          #pmk_hash = result["pmk_hash"]
+        #        if ((not pmk.nil?) and (pmk_hash != result["pmk_hash"]))
+        if !pmk.nil?
+          # pmk_hash = result["pmk_hash"]
           write_pmk(pmk)
           new_pmk = true
           puts "*** New PMK File"
         end
 
-        active_interfaces = Array.new
+        active_interfaces = []
         devices = result["radios"]
-        print "DEVICES: ",devices,"\n"
+        print "DEVICES: ", devices, "\n"
         interface_change = false
         # Go through interfaces
         # Write a new hostapd.wlanX.conf file for each config where the hash differs,
         # Start AP for new configs
         # Restart AP if config changed
         # Stop device if no longer enabled.
-        hostapd_procs.each do | interface , hostapd_proc |
+        hostapd_procs.each do |interface, hostapd_proc|
           # Find a matching wlan for this proc
-          device=devices.select{|x| x["wlan"] == interface}.first
-          if not device.nil?
-            if not device["wlan"].nil? and not device["config"].nil?
-              #config_hash = device["config_hash"]
+          device = devices.select { |x| x["wlan"] == interface }.first
+          if !device.nil?
+            if !device["wlan"].nil? and !device["config"].nil?
+              # config_hash = device["config_hash"]
               wlan = device["wlan"]
               mode = device["config"]["mode"]
               config = device["config"]
               # If the mode is "AP" we need to set up this interface.  First check the config_hash for a change
               if mode == "AP"
-                print "FOUND AP:",wlan,"\n"
+                print "FOUND AP:", wlan, "\n"
                 if hostapd_proc.is_running
-                  hostapd_proc.stop()
+                  hostapd_proc.stop
                 end
                 sleep(2)
-                ap_config=config["hostapd"]
+                ap_config = config["hostapd"]
                 active_interfaces.push(wlan)
-                #if config_hashes[wlan] != config_hash
+                # if config_hashes[wlan] != config_hash
                 interface_change = true
-                static_vid, ssid, chan =write_config(ap_config,hostapd_procs)
+                static_vid, ssid, chan = write_config(ap_config, hostapd_procs)
                 # Save channel to report to wifictlr
                 @channels[interface] = chan
                 # If static vid in config, use that
                 if static_vid > 0
                   static_vids[wlan] = {static_vid: static_vid, ssid: ssid}
-                  puts "VIDS[#{ssid}]:",static_vids
-                 end
-                #config_hashes[wlan] = config_hash
-                print "*** New Config for ",wlan,"\n"
-                #hostapd_proc.run_or_hup(WLAN_STATES::AP)
+                  puts "VIDS[#{ssid}]:", static_vids
+                end
+                # config_hashes[wlan] = config_hash
+                print "*** New Config for ", wlan, "\n"
+                # hostapd_proc.run_or_hup(WLAN_STATES::AP)
                 hostapd_proc.set_to_start
                 start = 0
                 if new_pmk
                   # If the pmks change, we must reload
-                  puts "reloading pmks for #{ wlan }"
-                  cmd = "hostapd_cli -i #{ wlan } reload_wpa_psk"
+                  puts "reloading pmks for #{wlan}"
+                  cmd = "hostapd_cli -i #{wlan} reload_wpa_psk"
                   result = `#{cmd}`.chomp
                   if result != "OK"
-                    puts "Reload pmks failed, restarting hostapd for #{ wlan }"
-                    #hostapd_proc.run_or_hup(WLAN_STATES::AP)
+                    puts "Reload pmks failed, restarting hostapd for #{wlan}"
+                    # hostapd_proc.run_or_hup(WLAN_STATES::AP)
                     hostapd_proc.set_to_start
                   end
                 else
-                  print "Not a NEW Config for ",wlan,"\n"
+                  print "Not a NEW Config for ", wlan, "\n"
                 end
               elsif mode == "OFF"
-                #if config_hashes[wlan] != config_hash
+                # if config_hashes[wlan] != config_hash
                 #  config_hashes[wlan] = config_hash
-                print "Stop: ",interface,"\n"
+                print "Stop: ", interface, "\n"
                 interface_change = true
-                #if hostapd_proc.is_running
-                hostapd_proc.stop()
-                #end
+                # if hostapd_proc.is_running
+                hostapd_proc.stop
+                # end
               else
-                print "Unknown radio mode: ",mode,"\n"
+                print "Unknown radio mode: ", mode, "\n"
               end
             end
           end
         end
         # Restart wlanbridge if an interface changed
-        if interface_change or not wlanbridge_proc.is_running
-          print "INTERFACE CHANGE!","\n"
-          wlanbridge_proc.stop()
+        if interface_change or !wlanbridge_proc.is_running
+          print "INTERFACE CHANGE!", "\n"
+          wlanbridge_proc.stop
           sleep(1)
-          wlanbridge_proc.run(active_interfaces,static_vids)
+          wlanbridge_proc.run(active_interfaces, static_vids)
         end
 
         # Start Radius Client
-        #if !radiusclient_proc.is_running
+        # if !radiusclient_proc.is_running
         #  radiusclient_proc.run()
-        #end
+        # end
         @start_time = Time.now
         state.update(STATES::RUN)
 
         # Start the hostaps
-        hostapd_procs.each do | interface , hostapd_proc |
+        hostapd_procs.each do |interface, hostapd_proc|
           puts "START HOSTAPD: #{interface}:#{hostapd_proc.state}"
           if hostapd_proc.state == WLAN_STATES::WAIT_AP
             hostapd_proc.run_or_hup(WLAN_STATES::AP)
           end
         end
-        
       end # end of 1.times do
 
     # The WiFi is in a misconfigured state
@@ -1688,10 +1647,10 @@ def pifi_management
           break
         end
 
-        hostapd_procs.each do | interface ,  hostapd_proc |
+        hostapd_procs.each do |interface, hostapd_proc|
           if hostapd_proc.state == WLAN_STATES::AP
-            if not hostapd_proc.is_running
-              print "hostapd for ", hostapd_proc.wlan," has unexpectedly stopped","\n"
+            if !hostapd_proc.is_running
+              print "hostapd for ", hostapd_proc.wlan, " has unexpectedly stopped", "\n"
               state.update(STATES::DISABLING)
               break
             end
@@ -1701,18 +1660,18 @@ def pifi_management
           break
         end
 
-        if not wlanbridge_proc.is_running
+        if !wlanbridge_proc.is_running
           puts "wlanbridge has unexpectedly stopped"
           state.update(STATES::DISABLING)
           break
         end
 
-        #if not radiusclient_proc.is_running
+        # if not radiusclient_proc.is_running
         #  puts "Radius Client has unexpectedly stopped. Restarting."
         #  radiusclient_proc.run()
         #  proc_restart_failures += 1
         #  break
-        #end
+        # end
 
         # Reset counter
         proc_restart_failures = 0
@@ -1720,78 +1679,77 @@ def pifi_management
         # See if time for next station scan
         if Time.now > @next_station_scan
           @interfaces = hostapd_procs.keys
-          @stations = gather_station_info(@channels,@connection_states,hostapd_procs)
+          @stations = gather_station_info(@channels, @connection_states, hostapd_procs)
           @station_report = {"AP" => mac, "Stations" => @stations}
           puts "####################### Stations ###########################"
           puts @station_report.to_json
-          result = send_cloud_clients_mesg(controller_ip,@station_report)
-          puts "Send stations result: #{ result }"
+          result = send_cloud_clients_mesg(controller_ip, @station_report)
+          puts "Send stations result: #{result}"
           @next_station_scan = Time.now + STATION_SCAN_TIME
         end
 
         @uptime = Time.now - @start_time
-        result = send_cloud_alive_mesg(controller_ip,mac,@channels,@uptime)
+        result = send_cloud_alive_mesg(controller_ip, mac, @channels, @uptime)
         if result.nil?
           response_failures += 1
-          puts "nothing returned from wifictlr, retries: #{ response_failures }"
+          puts "nothing returned from wifictlr, retries: #{response_failures}"
           if response_failures > CLOUD_RETRIES
-            puts "#{ CLOUD_RETRIES } falures, disabling WiFi"
+            puts "#{CLOUD_RETRIES} falures, disabling WiFi"
             state.update(STATES::DISABLING)
             response_failures = 0
           end
 
-        elsif (result["status"] == "success") #nothing needed to be performed
+        elsif result["status"] == "success" # nothing needed to be performed
 
-        elsif (result["status"] == "update") #we need to switch back to get a new config as we are out of date
+        elsif result["status"] == "update" # we need to switch back to get a new config as we are out of date
           puts "Received update to alive message. Switching to CONFIG state"
           state.update(STATES::CONFIG)
-        elsif (result["status"] == "fail") #AP has most likely been disabled.
+        elsif result["status"] == "fail" # AP has most likely been disabled.
           puts "Received FAIL to alive message. Disabling Radio"
           state.update(STATES::DISABLING)
-        else #unknown state? what to do here?
         end
       end # end of 1.times do
 
-     #This state disables hostapd
+    # This state disables hostapd
     when STATES::DISABLING
       puts "Disabling hostapd, wlanbridge and radius_client"
-      hostapd_procs.each do | interface, hostapd_proc |
+      hostapd_procs.each do |interface, hostapd_proc|
         if hostapd_proc.is_running
-          hostapd_proc.stop()
+          hostapd_proc.stop
         end
       end
 
       if wlanbridge_proc.is_running
-        wlanbridge_proc.stop()
+        wlanbridge_proc.stop
       end
 
-      #if radiusclient_proc.is_running
+      # if radiusclient_proc.is_running
       #  radiusclient_proc.stop()
-      #end
+      # end
 
-      clear_ap_config()
-      clear_pmk_file()
+      clear_ap_config
+      clear_pmk_file
 
       # Invalidate config/PMK hashes
-      #config_hash = "FFFFFFFFFFFF"
-      #pmk_hash = "FFFFFFFFFFFF"
+      # config_hash = "FFFFFFFFFFFF"
+      # pmk_hash = "FFFFFFFFFFFF"
 
-      #set back to DEFAULT_RATE seconds and force pause
+      # set back to DEFAULT_RATE seconds and force pause
       state.set_poll_time(DEFAULT_RATE)
-      state.update(STATES::START,true)
+      state.update(STATES::START, true)
     end
   end # End of State Machine Loop
 
   # Cleanup
-  hostapd_procs.each do | interface , hostapd_proc |
-    print "Stopping hostapd on ",interface,"\n"
-    hostapd_proc.stop()
+  hostapd_procs.each do |interface, hostapd_proc|
+    print "Stopping hostapd on ", interface, "\n"
+    hostapd_proc.stop
   end
-  wlanbridge_proc.stop()
-  #radiusclient_proc.stop()
+  wlanbridge_proc.stop
+  # radiusclient_proc.stop()
 
-  #response = Client.get(mesg)
-  #puts response
+  # response = Client.get(mesg)
+  # puts response
 end
 ###################################################################################################
 ###################################################################################################
@@ -1799,39 +1757,39 @@ end
 ###################################################################################################
 ###################################################################################################
 # Write out our pid for the systemd
-mypid=$$
+mypid = $$
 `chmod a+rw /run`
-print "My PID:",mypid,"\n"
-File.open("/run/pifi.pid", "w") { |f| f.write mypid,"\n" }
+print "My PID:", mypid, "\n"
+File.open("/run/pifi.pid", "w") { |f| f.write mypid, "\n" }
 
-#see if any other instances of pifi are running
+# see if any other instances of pifi are running
 lockfile = File.new("/tmp/pifi_controller.lock", "w")
-ret = lockfile.flock( File::LOCK_NB | File::LOCK_EX )
-if (ret === false)
+ret = lockfile.flock(File::LOCK_NB | File::LOCK_EX)
+if ret === false
   puts "Another instance of pifi controller is running. Exiting"
-  exit -1
+  exit(-1)
 end
 
-#catch ctrl+c and terminates hostapd and wlanbridge
+# catch ctrl+c and terminates hostapd and wlanbridge
 trap("INT") {
   puts "CTRL+C Caught, stopping pifi_state_machine"
   @should_run = false
 }
 
 # Enable Logging
-logging_directory = '/tmp'
+logging_directory = "/tmp"
 FileUtils.mkdir_p logging_directory
 # creates up to 10, 10 MB log files
 $logger = Logger.new(logging_directory + "/pifi.log", 10, 10 * 1024 * 1024)
 
-$logger.info{"PIFI STATE MACHINE Version #{MAJOR}.#{MINOR}.#{REVISION}"}
-$logger.info{"Running Directory: '#{__dir__}/'."}
+$logger.info { "PIFI STATE MACHINE Version #{MAJOR}.#{MINOR}.#{REVISION}" }
+$logger.info { "Running Directory: '#{__dir__}/'." }
 
 # Main running loop. In case exception occurrs, log it and continue.
 # CTRL+C Trap toggles should_run
 while @should_run
   begin
-    pifi_management()
+    pifi_management
   rescue Interrupt => e
     puts "Exiting via Interrupt"
     break
@@ -1846,4 +1804,4 @@ while @should_run
 end
 
 # Close to flush any remaining log entries
-$logger.close()
+$logger.close
