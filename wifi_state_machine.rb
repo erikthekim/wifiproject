@@ -7,10 +7,11 @@ require 'ipaddr'
 ########################################################################################
 # Version - of the form major.minor.revision
 # Feb 15, 2024 - Fixed IP address saving
+# Apri 29, 2024 - Add reboot option
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 10
+REVISION = 11
 
 # Set controller address here
 #CONTROLLER = '138.28.162.215' # Kenyon Test server 1
