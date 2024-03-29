@@ -1705,12 +1705,13 @@ def pifi_management
             response_failures = 0
           end
 
-        elsif result["status"] == "success" # nothing needed to be performed
+        elsif result["hash"] == @config_hash # nothing needed to be performed
 
-        elsif result["status"] == "update" # we need to switch back to get a new config as we are out of date
+        elsif result["hash"] != @config_hash # we need to switch back to get a new config as we are out of date
           puts "Received update to alive message. Switching to CONFIG state"
           state.update(STATES::CONFIG)
-        elsif result["status"] == "fail" # AP has most likely been disabled.
+        # elsif result["status"] == "fail" # AP has most likely been disabled.
+        else
           puts "Received FAIL to alive message. Disabling Radio"
           state.update(STATES::DISABLING)
         end
