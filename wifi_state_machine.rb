@@ -13,9 +13,11 @@ MINOR = 0
 REVISION = 10
 
 # Set controller address here
-# CONTROLLER = '138.28.162.215' # Kenyon Test server 1
-# CONTROLLER = '192.168.100.211' # Cloud server at home
-CONTROLLER = "cloudwifi.org" # Cloud server
+#CONTROLLER = '138.28.162.215' # Kenyon Test server 1
+#CONTROLLER = '138.28.162.211' # Kenyon Test server 1
+#CONTROLLER = '192.168.100.211' # Cloud server at home  
+#CONTROLLER = '192.168.100.201' # Cloud server at home  
+CONTROLLER = 'cloudwifi.org' # Cloud server
 # Set Controller Port
 PORT = 3000   # default
 # PORT=3001
@@ -1052,7 +1054,9 @@ def send_cloud_request(wifictlr, endpoint, postdata)
     return response_error
   end
 
-  result = result.parsed_response["json"]
+  puts "########RESULT: #{result}"
+  r = result=result.parsed_response['json']
+  return r
 end
 
 # get message to wifictlr. Expect JSON in return.
@@ -1706,6 +1710,19 @@ def pifi_management
           end
 
         elsif result["hash"] == @config_hash # nothing needed to be performed
+        # Check if reboot is requested
+        elsif (result["action"] == "reboot") #  Time to reboot
+          puts "REBOOT!!!!!!!!!"
+          `sudo reboot`
+        # See if github version check requested
+        #elsif (result["action"] == "version") #  check version                                                                                                                                         
+        #  gitstatus = `git status`
+        #  if gitstatus.include? "up to date"
+        #    puts "$$$$$$$$$$UP to date"
+        #  else
+        #    puts "$$$$$$$$$$New Version"
+        #  end
+        
 
         elsif result["hash"] != @config_hash # we need to switch back to get a new config as we are out of date
           puts "Received update to alive message. Switching to CONFIG state"
