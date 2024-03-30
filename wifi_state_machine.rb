@@ -11,14 +11,14 @@ require 'ipaddr'
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 11
+REVISION = 12
 
 # Set controller address here
 #CONTROLLER = '138.28.162.215' # Kenyon Test server 1
 #CONTROLLER = '138.28.162.211' # Kenyon Test server 1
-#CONTROLLER = '192.168.100.211' # Cloud server at home  
+CONTROLLER = '192.168.100.211' # Cloud server at home  
 #CONTROLLER = '192.168.100.201' # Cloud server at home  
-CONTROLLER = 'cloudwifi.org' # Cloud server
+#CONTROLLER = 'cloudwifi.org' # Cloud server
 # Set Controller Port
 PORT=3000   #default
 #PORT=3001
@@ -1746,6 +1746,14 @@ def pifi_management
         # Check if reboot is requested
         elsif (result["action"] == "reboot") #  Time to reboot
           puts "REBOOT!!!!!!!!!"
+          `sudo reboot`
+        # Check if reboot is requested                                                   
+        elsif (result["action"] == "upgrade") #  Time to reboot
+          puts "######################################################################"
+          puts "upgrade!!!!!!!!!"
+          puts "######################################################################"
+          `git stash`
+          `git pull`
           `sudo reboot`
         # See if github version check requested
         #elsif (result["action"] == "version") #  check version                                                                                                                                         
