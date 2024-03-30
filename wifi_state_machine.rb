@@ -11,7 +11,7 @@ require 'ipaddr'
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 11
+REVISION = 12
 
 # Set controller address here
 #CONTROLLER = '138.28.162.215' # Kenyon Test server 1
