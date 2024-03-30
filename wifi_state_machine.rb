@@ -751,7 +751,7 @@ end
 ############################################################
 def get_stations(interface,channel)
   @cmd = "iw dev #{interface} station dump"
-  puts @cmd
+  #puts @cmd
   @station_list = `#{ @cmd }`
   @lines = @station_list.split("\n")
   @stations = {}
@@ -805,8 +805,8 @@ def gather_station_info(interface_channels,connection_states,hostapd_procs)
         @stations[mac] = @stations[mac].merge(station_state)
       end
       @stations[mac]["ssid"] = hostapd_procs[@stations[mac]["interface"]].ssid
-      puts " @pmk_to_user_id #{ @pmk_to_user_id}"
-      puts "USER: #{@pmk_to_user_id[@stations[mac]["pmk"]]}"
+      #puts " @pmk_to_user_id #{ @pmk_to_user_id}"
+      #puts "USER: #{@pmk_to_user_id[@stations[mac]["pmk"]]}"
       @stations[mac]["user_id"] = @pmk_to_user_id[ @stations[mac]["pmk"]]
     }
 
@@ -838,16 +838,16 @@ CONNECTION_LOG = "/tmp/connections.log"
 def update_connections(connections)
   begin
     File.open(CONNECTION_LOG).each do |line|
-      puts "CONNECTION: #{line}"
+      #puts "CONNECTION: #{line}"
       connection = JSON.parse(line)
       if connection.key? "mac"
         mac = connection["mac"].downcase
-        puts "CON: #{mac}, #{connection}"
+        #puts "CON: #{mac}, #{connection}"
         connections[mac] = connection
       end
     end
     # Clear the file
-    puts "CLEAR FILE"
+    puts "CLEAR Connection FILE"
     `rm #{CONNECTION_LOG}`
     #File.open(CONNECTION_LOG,'w') {|file| file.truncate(0) }
 
@@ -887,7 +887,7 @@ def scan_for_aps (interface)
     cmd = "ifconfig #{interface} up"
     print "Bringing up interface: #{ cmd }\n"
     `#{ cmd }`
-    puts "After bringing interface up..."
+    #puts "After bringing interface up..."
     
     @ap_list = `iw dev #{interface} scan`
     @lines = @ap_list.split("\n")
@@ -1004,10 +1004,10 @@ def select_channel(interface,channels,channel)
       end
     end
   end
-  puts @channel_levels
-  print "In use:", @used_channels, "\n"
+  #puts @channel_levels
+  #print "In use:", @used_channels, "\n"
   @unused = @avail_channels - @used_channels
-  print "unused:", @unused, "\n"
+  #print "unused:", @unused, "\n"
   if @unused.length > 0
     return @unused.to_a.shuffle.first
   end
@@ -1041,7 +1041,7 @@ def send_cloud_request(wifictlr,endpoint, postdata)
 
 
   url = "http://#{wifictlr}:#{PORT}/api/v1/wificlients/#{endpoint}"
-  puts "url: #{url}"
+  #puts "url: #{url}"
   #puts "SEND: #{body}"
   header = { 'Content-Type' => 'application/json' }
 
@@ -1076,7 +1076,7 @@ def send_cloud_request(wifictlr,endpoint, postdata)
     return response_error
   end
 
-  puts "########RESULT: #{result}"
+  #puts "########RESULT: #{result}"
   r = result=result.parsed_response['json']
   return r
 end
@@ -1122,7 +1122,7 @@ def get_cloud_request(wifictlr,endpoint, postdata)
   end
 
   r = result=result.parsed_response['json']
-  puts "send_cloud_request result######: #{r}"
+  #puts "send_cloud_request result######: #{r}"
   return r
 end
 
@@ -1546,7 +1546,7 @@ def pifi_management
 
         if result.nil?
           response_failures += 1
-          puts "nothing returns from wifictlr, retries: #{ response_failures }"
+          puts "nothing returned from wifictlr, retries: #{ response_failures }"
           if response_failures > CLOUD_RETRIES
             puts "#{ CLOUD_RETRIES } falures, disabling WiFi"
             state.update(STATES::DISABLING)
