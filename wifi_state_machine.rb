@@ -19,7 +19,7 @@ CUSTOMPORTAL = "customportal.txt"
 # Set controller address is customportal.txt has an address
 CONTROLLER = 'cloudwifi.org' # Cloud server
 if File.exist?(CUSTOMPORTAL)
-  CONTROLLER  = `cat #{CUSTOMPORTAL}`
+  CONTROLLER  = `cat #{CUSTOMPORTAL}`.chomp
 end
 puts "Portal: #{CONTROLLER}"
 # Set Controller Port
