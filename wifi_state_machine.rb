@@ -11,7 +11,7 @@ require 'ipaddr'
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 16
+REVISION = 17
 
 # If the following file exists, it's contents will the the portal IP address.
 CUSTOMPORTAL = "customportal.txt"
