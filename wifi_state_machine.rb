@@ -11,7 +11,7 @@ require 'ipaddr'
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 14
+REVISION = 15
 
 # Set controller address here
 #CONTROLLER = '138.28.162.215' # Kenyon Test server 1
@@ -1752,8 +1752,8 @@ def pifi_management
           puts "######################################################################"
           puts "upgrade!!!!!!!!!"
           puts "######################################################################"
-          `git stash`
-          `git pull`
+          `sudo -u kenyon git stash`
+          `sudo -u kenyon git pull`
           `sudo reboot`
         # See if github version check requested
         #elsif (result["action"] == "version") #  check version                                                                                                                                         
