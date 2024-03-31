@@ -11,7 +11,7 @@ require 'ipaddr'
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 15
+REVISION = 16
 
 CUSTOMPORTAL = "customportal.txt"
 
