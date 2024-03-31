@@ -13,6 +13,7 @@ MAJOR = 1
 MINOR = 0
 REVISION = 16
 
+# If the following file exists, it's contents will the the portal IP address.
 CUSTOMPORTAL = "customportal.txt"
 
 # Set controller address is customportal.txt has an address
