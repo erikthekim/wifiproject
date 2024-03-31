@@ -13,12 +13,14 @@ MAJOR = 1
 MINOR = 0
 REVISION = 15
 
-# Set controller address here
-#CONTROLLER = '138.28.162.215' # Kenyon Test server 1
-#CONTROLLER = '138.28.162.211' # Kenyon Test server 1
-CONTROLLER = '192.168.100.211' # Cloud server at home  
-#CONTROLLER = '192.168.100.201' # Cloud server at home  
-#CONTROLLER = 'cloudwifi.org' # Cloud server
+CUSTOMPORTAL = "customportal.txt"
+
+# Set controller address is customportal.txt has an address
+CONTROLLER = 'cloudwifi.org' # Cloud server
+if File.exist?(CUSTOMPORTAL)
+  CONTROLLER  = `cat #{CUSTOMPORTAL}`
+end
+puts "Portal: #{CONTROLLER}"
 # Set Controller Port
 PORT=3000   #default
 #PORT=3001
