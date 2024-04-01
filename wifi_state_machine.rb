@@ -129,8 +129,31 @@ module WLAN_STATES
   SCAN = 2 # Being used for monitoring
   WAIT_AP = 4 # Waiting to start as AP
 end
-
 #################################################################
+#
+# A function to "fix up" USB interfaces that need help
+# In the future should make it scan for the device first
+# This is a terrible siolution, but it works by retrying until it succeeds
+#
+#################################################################
+def  update_usb_radios
+  puts "Checking for usb radios that need special attention."
+  # 0bda:1a2b Realtek Semiconductor Corp. RTL8188GU 802.11n WLAN Adapter (Driver CDROM Mode)
+  radios = `lsusb`
+  puts "RADIOS: #{radios}"
+  while  radios.include?("0bda:1a2b")
+    puts "Found Realtek Semiconductor Corp. 802.11ac NIC 0bda:1a2b"
+    result = `usb_modeswitch -KW -v 0bda -p 1a2b`
+    #puts "RESULT: #{result}"
+    radios = `lsusb`
+    #puts "RADIOS: #{radios}"
+    sleep(1)
+  end
+  puts "Radio Update complete"
+
+end
+
+  #################################################################
 #
 # A class for managing and monitoring hostapd instances
 #
@@ -1125,7 +1148,7 @@ def get_cloud_request(wifictlr,endpoint, postdata)
   end
 
   r = result=result.parsed_response['json']
-  #puts "send_cloud_request result######: #{r}"
+  #puts "send_loud_request result######: #{r}"
   return r
 end
 
@@ -1134,9 +1157,8 @@ def send_cloud_hello_mesg(wifictlr,mac)
   wlan=get_max_wlan()
   os=get_os();
 
-  #piglet_version = get_piglet_version()
-
   cpu=get_cpu_info
+  
   # get radio info
   channels=get_hw_info().to_json
   wlans = gather_wlan_info
@@ -1463,7 +1485,7 @@ def pifi_management
 
   # Set start to 1 so we get a complete configuration
   start = 1
-
+  
   # Start the state machine
   while @should_run
 
@@ -1853,6 +1875,9 @@ $logger = Logger.new(logging_directory + "/pifi.log", 10, 10 * 1024 * 1024)
 
 $logger.info{"PIFI STATE MACHINE Version #{MAJOR}.#{MINOR}.#{REVISION}"}
 $logger.info{"Running Directory: '#{__dir__}/'."}
+
+# Update radios
+update_usb_radios
 
 # Main running loop. In case exception occurrs, log it and continue.
 # CTRL+C Trap toggles should_run
