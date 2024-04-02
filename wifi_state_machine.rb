@@ -7,17 +7,22 @@ require "ipaddr"
 ########################################################################################
 # Version - of the form major.minor.revision
 # Feb 15, 2024 - Fixed IP address saving
+# Apri 29, 2024 - Add reboot option
+# April 1, 0224 - C1.1.19, added realtek radio hack
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 10
+REVISION = 19
 
-# Set controller address here
-#CONTROLLER = '138.28.162.215' # Kenyon Test server 1
-#CONTROLLER = '138.28.162.211' # Kenyon Test server 1
-#CONTROLLER = '192.168.100.211' # Cloud server at home  
-#CONTROLLER = '192.168.100.201' # Cloud server at home  
+# If the following file exists, it's contents will the the portal IP address.
+CUSTOMPORTAL = "customportal.txt"
+
+# Set controller address is customportal.txt has an address
 CONTROLLER = 'cloudwifi.org' # Cloud server
+if File.exist?(CUSTOMPORTAL)
+  CONTROLLER  = `cat #{CUSTOMPORTAL}`.chomp
+end
+puts "Portal: #{CONTROLLER}"
 # Set Controller Port
 PORT = 3000   # default
 # PORT=3001
@@ -125,8 +130,31 @@ module WLAN_STATES
   SCAN = 2 # Being used for monitoring
   WAIT_AP = 4 # Waiting to start as AP
 end
-
 #################################################################
+#
+# A function to "fix up" USB interfaces that need help
+# In the future should make it scan for the device first
+# This is a terrible siolution, but it works by retrying until it succeeds
+#
+#################################################################
+def  update_usb_radios
+  puts "Checking for usb radios that need special attention."
+  # 0bda:1a2b Realtek Semiconductor Corp. RTL8188GU 802.11n WLAN Adapter (Driver CDROM Mode)
+  radios = `lsusb`
+  puts "RADIOS: #{radios}"
+  while  radios.include?("0bda:1a2b")
+    puts "Found Realtek Semiconductor Corp. 802.11ac NIC 0bda:1a2b"
+    result = `usb_modeswitch -KW -v 0bda -p 1a2b`
+    #puts "RESULT: #{result}"
+    radios = `lsusb`
+    #puts "RADIOS: #{radios}"
+    sleep(1)
+  end
+  puts "Radio Update complete"
+
+end
+
+  #################################################################
 #
 # A class for managing and monitoring hostapd instances
 #
@@ -740,8 +768,8 @@ end
 ############################################################
 def get_stations(interface, channel)
   @cmd = "iw dev #{interface} station dump"
-  puts @cmd
-  @station_list = `#{@cmd}`
+  #puts @cmd
+  @station_list = `#{ @cmd }`
   @lines = @station_list.split("\n")
   @stations = {}
   @station = {}
@@ -793,8 +821,8 @@ def gather_station_info(interface_channels, connection_states, hostapd_procs)
         @stations[mac] = @stations[mac].merge(station_state)
       end
       @stations[mac]["ssid"] = hostapd_procs[@stations[mac]["interface"]].ssid
-      puts " @pmk_to_user_id #{@pmk_to_user_id}"
-      puts "USER: #{@pmk_to_user_id[@stations[mac]["pmk"]]}"
+      #puts " @pmk_to_user_id #{ @pmk_to_user_id}"
+      #puts "USER: #{@pmk_to_user_id[@stations[mac]["pmk"]]}"
       @stations[mac]["user_id"] = @pmk_to_user_id[ @stations[mac]["pmk"]]
     }
 
@@ -824,14 +852,24 @@ end
 CONNECTION_LOG = "/tmp/connections.log"
 
 def update_connections(connections)
-  File.open(CONNECTION_LOG).each do |line|
-    puts "CONNECTION: #{line}"
-    connection = JSON.parse(line)
-    if connection.key? "mac"
-      mac = connection["mac"].downcase
-      puts "CON: #{mac}, #{connection}"
-      connections[mac] = connection
+  begin
+    File.open(CONNECTION_LOG).each do |line|
+      #puts "CONNECTION: #{line}"
+      connection = JSON.parse(line)
+      if connection.key? "mac"
+        mac = connection["mac"].downcase
+        #puts "CON: #{mac}, #{connection}"
+        connections[mac] = connection
+      end
     end
+    # Clear the file
+    puts "CLEAR Connection FILE"
+    `rm #{CONNECTION_LOG}`
+    #File.open(CONNECTION_LOG,'w') {|file| file.truncate(0) }
+
+  rescue
+    puts "ERROR in processing connections.log file"
+    # nothing else to do here
   end
   # Clear the file
   puts "CLEAR FILE"
@@ -866,12 +904,32 @@ end
 # get_ap_list - Get a list of APs visible as a hash over AP addresses
 # interface is the interface to use to do the scan
 #######################################################################
-def scan_for_aps(interface)
-  # First let's make sure the interface is up
-  cmd = "ifconfig #{interface} up"
-  print "Bringing up interface: #{cmd}\n"
-  `#{cmd}`
-  puts "After bringing interface up..."
+def scan_for_aps (interface)
+    # First let's make sure the interface is up
+    cmd = "ifconfig #{interface} up"
+    print "Bringing up interface: #{ cmd }\n"
+    `#{ cmd }`
+    #puts "After bringing interface up..."
+    
+    @ap_list = `iw dev #{interface} scan`
+    @lines = @ap_list.split("\n")
+    @ap_data = {}
+    @address = ""
+    @ssid = ""
+    @channel = ""
+    @signal=""
+    @frequency = ""
+    @ht_width = ""
+    @ht_protection = ""
+    i = 0
+    while i < @lines.length() do
+      if @lines[i] =~ /BSS (.+)\(/
+        if @address != ""
+          # Convert overlapping channels to actual channel(s)
+          @cell = {"SSID" => @ssid, "channel" => @channel,
+                   "frequency" => @frequency, "ht_width" => @ht_width,
+                   "signal" => @signal, "ht_protection" => @ht_protection}
+          @ap_data[@address] = @cell
 
   @ap_list = `iw dev #{interface} scan`
   @lines = @ap_list.split("\n")
@@ -986,10 +1044,10 @@ def select_channel(interface, channels, channel)
       end
     end
   end
-  puts @channel_levels
-  print "In use:", @used_channels, "\n"
+  #puts @channel_levels
+  #print "In use:", @used_channels, "\n"
   @unused = @avail_channels - @used_channels
-  print "unused:", @unused, "\n"
+  #print "unused:", @unused, "\n"
   if @unused.length > 0
     return @unused.to_a.sample
   end
@@ -1020,9 +1078,9 @@ def send_cloud_request(wifictlr, endpoint, postdata)
   body = postdata.to_json
 
   url = "http://#{wifictlr}:#{PORT}/api/v1/wificlients/#{endpoint}"
-  puts "url: #{url}"
-  # puts "SEND: #{body}"
-  header = {"Content-Type" => "application/json"}
+  #puts "url: #{url}"
+  #puts "SEND: #{body}"
+  header = { 'Content-Type' => 'application/json' }
 
   response_error = {
     status: "httperror",
@@ -1054,7 +1112,7 @@ def send_cloud_request(wifictlr, endpoint, postdata)
     return response_error
   end
 
-  puts "########RESULT: #{result}"
+  #puts "########RESULT: #{result}"
   r = result=result.parsed_response['json']
   return r
 end
@@ -1098,9 +1156,9 @@ def get_cloud_request(wifictlr, endpoint, postdata)
     return response_error
   end
 
-  r = result = result.parsed_response["json"]
-  puts "send_cloud_request result######: #{r}"
-  r
+  r = result=result.parsed_response['json']
+  #puts "send_loud_request result######: #{r}"
+  return r
 end
 
 # Send a hello message to the wifictlr
@@ -1108,9 +1166,8 @@ def send_cloud_hello_mesg(wifictlr, mac)
   wlan = get_max_wlan
   os = get_os
 
-  # piglet_version = get_piglet_version()
-
-  cpu = get_cpu_info
+  cpu=get_cpu_info
+  
   # get radio info
   channels = get_hw_info.to_json
   wlans = gather_wlan_info
@@ -1425,7 +1482,7 @@ def pifi_management
 
   # Set start to 1 so we get a complete configuration
   start = 1
-
+  
   # Start the state machine
   while @should_run
 
@@ -1510,7 +1567,7 @@ def pifi_management
 
         if result.nil?
           response_failures += 1
-          puts "nothing returns from wifictlr, retries: #{response_failures}"
+          puts "nothing returned from wifictlr, retries: #{ response_failures }"
           if response_failures > CLOUD_RETRIES
             puts "#{CLOUD_RETRIES} falures, disabling WiFi"
             state.update(STATES::DISABLING)
@@ -1714,6 +1771,14 @@ def pifi_management
         elsif (result["action"] == "reboot") #  Time to reboot
           puts "REBOOT!!!!!!!!!"
           `sudo reboot`
+        # Check if reboot is requested                                                   
+        elsif (result["action"] == "upgrade") #  Time to reboot
+          puts "######################################################################"
+          puts "upgrade!!!!!!!!!"
+          puts "######################################################################"
+          `sudo -u kenyon git stash`
+          `sudo -u kenyon git pull`
+          `sudo reboot`
         # See if github version check requested
         #elsif (result["action"] == "version") #  check version                                                                                                                                         
         #  gitstatus = `git status`
@@ -1808,6 +1873,9 @@ $logger = Logger.new(logging_directory + "/pifi.log", 10, 10 * 1024 * 1024)
 
 $logger.info { "PIFI STATE MACHINE Version #{MAJOR}.#{MINOR}.#{REVISION}" }
 $logger.info { "Running Directory: '#{__dir__}/'." }
+
+# Update radios
+update_usb_radios
 
 # Main running loop. In case exception occurrs, log it and continue.
 # CTRL+C Trap toggles should_run

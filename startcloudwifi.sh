@@ -6,4 +6,5 @@ then
 fi
 
 cd /home/kenyon/wificlient 
+
 ruby wifi_state_machine.rb &
