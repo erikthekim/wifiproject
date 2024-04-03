@@ -14,8 +14,10 @@ MAJOR = 1
 MINOR = 0
 REVISION = 19
 
-# If the following file exists, it's contents will the the portal IP address.
+# If the following files exists, their content will the the portal IP address.
+# and the port number
 CUSTOMPORTAL = "customportal.txt"
+CUSTOMPORT = "customport.txt"
 
 # Set controller address is customportal.txt has an address
 CONTROLLER = "cloudwifi.org" # Cloud server
@@ -24,11 +26,11 @@ if File.exist?(CUSTOMPORTAL)
 end
 puts "Portal: #{CONTROLLER}"
 # Set Controller Port
-PORT = 3000   # default
-# PORT=3001
-# PORT=3002
-# PORT=3003
-# PORT=3004
+PORT=3000   #default
+if File.exist?(CUSTOMPORT)
+  PORT  = `cat #{CUSTOMPORT}`.chomp
+end
+puts "Port: #{PORT}"
 
 # Default Sleep Time in seconds
 DEFAULT_SLEEP = 30
