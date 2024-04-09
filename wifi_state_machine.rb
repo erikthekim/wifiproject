@@ -26,9 +26,9 @@ if File.exist?(CUSTOMPORTAL)
 end
 puts "Portal: #{CONTROLLER}"
 # Set Controller Port
-PORT=3000   #default
+PORT = 3000   # default
 if File.exist?(CUSTOMPORT)
-  PORT  = `cat #{CUSTOMPORT}`.chomp
+  PORT = `cat #{CUSTOMPORT}`.chomp
 end
 puts "Port: #{PORT}"
 
@@ -1395,7 +1395,7 @@ def pifi_management
   # stores the time the AP started, 0 means not started
   @start_time = 0
   # The hash of the config currently running on the device
-  @config_hash = ""
+  @config_digest = ""
   # kill hostapd, wlanbridge and radius client by name
   `pkill -f hostapd`
   `pkill -f wlanbridge`
@@ -1563,7 +1563,7 @@ def pifi_management
         end
 
         # Updates the config hash to reflect the most recent config file.
-        @config_hash = result["confighash"]
+        @config_digest = result["configdigest"]
         puts "Received configuration hash: #{@config_hash}"
 
         # set radius secret
@@ -1745,7 +1745,6 @@ def pifi_management
             response_failures = 0
           end
 
-        elsif result["hash"] == @config_hash # nothing needed to be performed
         # Check if reboot is requested
         elsif result["action"] == "reboot" #  Time to reboot
           puts "REBOOT!!!!!!!!!"
@@ -1767,7 +1766,9 @@ def pifi_management
         #    puts "$$$$$$$$$$New Version"
         #  end
 
-        elsif result["hash"] != @config_hash # we need to switch back to get a new config as we are out of date
+        elsif result["digest"] == @config_digest # nothing needed to be performed
+
+        elsif result["digest"] != @config_digest # we need to switch back to get a new config as we are out of date
           puts "Received update to alive message. Switching to CONFIG state"
           state.update(STATES::CONFIG)
         # elsif result["status"] == "fail" # AP has most likely been disabled.
