@@ -8,11 +8,12 @@ require "ipaddr"
 # Version - of the form major.minor.revision
 # Feb 15, 2024 - Fixed IP address saving
 # Apri 29, 2024 - Add reboot option
-# April 1, 0224 - C1.1.19, added realtek radio hack
+# April 1, 2024 - C1.1.19, added realtek radio hack
+# April 18, 20204 - 1.1.20 - Added new confighash method
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 19
+REVISION = 20
 
 # If the following files exists, their content will the the portal IP address.
 # and the port number
