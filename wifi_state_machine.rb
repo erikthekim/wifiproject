@@ -10,10 +10,11 @@ require "ipaddr"
 # Apri 29, 2024 - Add reboot option
 # April 1, 2024 - C1.1.19, added realtek radio hack
 # April 18, 20204 - 1.1.20 - Added new confighash method
+# Aprial 19, 2024 - 1.1.21 - change channels to integers
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 20
+REVISION = 21
 
 # If the following files exists, their content will the the portal IP address.
 # and the port number
