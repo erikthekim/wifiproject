@@ -17,7 +17,7 @@ require "ipaddr"
 
 MAJOR = 1
 MINOR = 0
-REVISION = 21
+REVISION = 22
 
 # If the following files exists, their content will the the portal IP address.
 # and the port number
