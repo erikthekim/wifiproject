@@ -9,11 +9,12 @@ require "ipaddr"
 # Feb 15, 2024 - Fixed IP address saving
 # Apri 29, 2024 - Add reboot option
 # April 1, 2024 - C1.1.19, added realtek radio hack
-# April 18, 20204 - 1.1.20 - Added new confighash method
+# April 18, 2024 - 1.1.20 - Added new confighash method
+# April 19, 2024 - 1.1.21 - change channels to integer
 ########################################################################################
 MAJOR = 1
 MINOR = 0
-REVISION = 20
+REVISION = 21
 
 # If the following files exists, their content will the the portal IP address.
 # and the port number
@@ -69,6 +70,10 @@ HOSTAPD_FILE = "/tmp/hostapd.conf"
 # map pmk to user names
 @pmk_to_user_id = {}
 @my_ip_add = `hostname -I | awk '{print $1}'`.chomp
+
+def string_to_array(string) 
+  string.scan(/\d+/).map(&:to_i) 
+end
 #################################################################
 # puts and print overrides to redirect to logging engine.
 #################################################################
@@ -673,7 +678,7 @@ def get_wlan_bands(phy)
           while lines[i] =~ /^\s+\* \d+\sMHz/
             if !lines[i].include?("disabled") and !lines[i].include?("radar") and !lines[i].include?("no IR")
               if lines[i] =~ /^\s+\* (\d+)\sMHz\s\[(\d+)\]\s+\(([\d.]+)/
-                channels.push($2)
+                channels.push($2.to_i)
                 freqs.push($1)
                 power.push($3)
               end
@@ -895,7 +900,7 @@ OVERLAPPING_CHANNELS = {2 => [1, 6], 3 => [1, 6], 4 => [1, 6], 5 => [1, 6], 7 =>
 #######################################################################
 def overlap_channels(channel)
   if OVERLAPPING_CHANNELS.key?(channel)
-    print "Fucking overlapping channel: ", channel, "\n"
+#    print "Fucking overlapping channel: ", channel, "\n"
     OVERLAPPING_CHANNELS[channel]
   else
     [channel]
@@ -983,10 +988,9 @@ end
 # channels - the list of channels the wifictlr says we can choose from
 #
 #######################################################################
-
 def select_channel(interface, channels, channel)
   if channels.is_a? String
-    channels = channels.split(",")
+    channels = string_to_array(channels)
   end
 
   if channels[0].is_a? String
@@ -1094,7 +1098,6 @@ def send_cloud_request(wifictlr, endpoint, postdata)
     return response_error
   end
 
-  # puts "########RESULT: #{result}"
   result = result.parsed_response["json"]
 end
 
@@ -1325,7 +1328,7 @@ def write_config(config, hostapd_procs)
     if !hostapd_procs.nil? and hostapd_procs.key?(@interface) and hostapd_procs[@interface].is_running
       hostapd_procs[@interface].stop
     end
-    @auto_channel = select_channel(@interface, @chan_list, channel)
+    @auto_channel = select_channel(@interface, @chan_list, @auto_channel)
     print "Auto channel: ", @auto_channel, "\n"
     new_config[:channel] = @auto_channel
   end
