@@ -673,7 +673,7 @@ def get_wlan_bands(phy)
           while lines[i] =~ /^\s+\* \d+\sMHz/
             if !lines[i].include?("disabled") and !lines[i].include?("radar") and !lines[i].include?("no IR")
               if lines[i] =~ /^\s+\* (\d+)\sMHz\s\[(\d+)\]\s+\(([\d.]+)/
-                channels.push($2)
+                channels.push($2.to_i)
                 freqs.push($1)
                 power.push($3)
               end
