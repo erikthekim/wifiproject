@@ -9,9 +9,12 @@ require "ipaddr"
 # Feb 15, 2024 - Fixed IP address saving
 # Apri 29, 2024 - Add reboot option
 # April 1, 2024 - C1.1.19, added realtek radio hack
+
 # April 18, 2024 - 1.1.20 - Added new confighash method
 # April 19, 2024 - 1.1.21 - change channels to integer
+# April 19, 2024 - 1.1.22 - Fix string to array conversion
 ########################################################################################
+
 MAJOR = 1
 MINOR = 0
 REVISION = 21
