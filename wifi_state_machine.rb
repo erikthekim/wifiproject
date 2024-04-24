@@ -61,7 +61,11 @@ PROC_RESTART_RETRIES = 5
 # cur_config_hash = "FFFFFFFFFFFFFFF"
 # cur_pmk_hash = "FFFFFFFFFFFFFFF"
 
-# Wifi current connection states
+# pmks - stores that current PMK hash, with PMK->{pmk, user_id, maxdev, upmax, downmax }
+@pmks = {}
+
+# Wifi current connection states as a hash mapping client macs to information
+# MAC -> {'event', 'time', 'mac', 'pmk', 'vid'}
 @connection_states = {}
 
 # PMK file uname
@@ -813,11 +817,18 @@ end
 # Given a list of interfaces gather all station (client) information
 # Into a hash
 # Send a hash of wlans and channels.
-def gather_station_info(interface_channels, connection_states, hostapd_procs)
+def gather_station_info(interface_channels, connection_states, hostapd_procs, pmks)
   # Get the current connection states from the connetion log
-  update_connections(connection_states)
+  update_connections(connection_states,pmks)
   puts "CONNECTIONS:" + connection_states.to_s
 
+  # Add in all disconnected stations if we were already assocated
+  # If something has reconnected, it will be over written by the code below
+  connection_states.each { | mac, station |
+      if station["event"] == "disassoc"
+        @all_stations[mac] = station
+      end
+  }
   @all_stations = {}
   interface_channels.each { |wlan, channel|
     # get the stations for a given wlan
@@ -832,19 +843,17 @@ def gather_station_info(interface_channels, connection_states, hostapd_procs)
         @stations[mac] = @stations[mac].merge(station_state)
       end
       @stations[mac]["ssid"] = hostapd_procs[@stations[mac]["interface"]].ssid
+      if @stations[mac]["associated"] == "yes"
+      	@stations[mac]["event"]="assoc"
+      end
       # puts " @pmk_to_user_id #{ @pmk_to_user_id}"
       # puts "USER: #{@pmk_to_user_id[@stations[mac]["pmk"]]}"
       @stations[mac]["user_id"] = @pmk_to_user_id[ @stations[mac]["pmk"]]
     }
 
     @all_stations = @all_stations.merge(@stations)
-    # Add in all disconnected stations if we were already assocated
-    # connection_states.each { | mac, station |
-    #  if station["event"] == "disassoc"
-    #    @all_stations[mac] = station
-    #  end
-    # }
-    # puts "STATIONS: #{ @all_stations }"
+
+     #puts "STATIONS: #{ @all_stations }"
 
     # Clear connection states for stations no longer present
     # connection_states.keys.each { | mac |
@@ -862,16 +871,20 @@ end
 #######################################################################
 CONNECTION_LOG = "/tmp/connections.log"
 
-def update_connections(connections)
+def update_connections(connections,pmks)
   begin
     File.open(CONNECTION_LOG).each do |line|
       # puts "CONNECTION: #{line}"
       connection = JSON.parse(line)
       if connection.key? "mac"
         mac = connection["mac"].downcase
-        # puts "CON: #{mac}, #{connection}"
+        puts "@@@@@@@@@@@@@@@@@@@@@@@@@@@CONN: #{mac}, #{connection}"
         connections[mac] = connection
+        connections[mac]["maxdev"] = pmks[conn["pmk"][maxdev]]
       end
+    end
+    connections.each do |mac,conn|
+      conn["maxdev"] = pmks[conn["pmk"][maxdev]]
     end
     # Clear the file
     puts "CLEAR Connection FILE"
@@ -882,8 +895,8 @@ def update_connections(connections)
     # nothing else to do here
   end
   # Clear the file
-  puts "CLEAR FILE"
-  `rm #{CONNECTION_LOG}`
+  #puts "CLEAR FILE"
+  #`rm #{CONNECTION_LOG}`
   # File.open(CONNECTION_LOG,'w') {|file| file.truncate(0) }
 rescue
   puts "ERROR in processing connections.log file"
@@ -1242,6 +1255,19 @@ end
 
 #################################################################
 #
+# create_pmk_hash - Create a hash of pmks and the corrsponding data
+#
+#################################################################
+def create_pmk_hash(pmks)
+    my_pmks={}
+	pmks.each do |pmk_entry|
+		my_pmks[pmk_entry["pmk"]] = {:userid=>pmk_entry["user_id"], :maxdev =>pmk_entry["maxdev"], :upmax =>pmk_entry["upmax"], :downmax =>pmk_entry["downmax"] }
+	end	
+	return my_pmks
+end
+
+#################################################################
+#
 # write config - write a new hostapd.conf from information from wifictlr
 # Returns static VLAN number or -1, ssid or "", channel or ""
 #
@@ -1581,6 +1607,8 @@ def pifi_management
         # end
 
         pmk = result["pmk"]
+        @pmks = create_pmk_hash(pmk)
+        puts "PMKS: #{@pmks}"
 
         new_pmk = false
         # optionally write a new pmkile
@@ -1732,7 +1760,7 @@ def pifi_management
         # See if time for next station scan
         if Time.now > @next_station_scan
           @interfaces = hostapd_procs.keys
-          @stations = gather_station_info(@channels, @connection_states, hostapd_procs)
+          @stations = gather_station_info(@channels, @connection_states, hostapd_procs,@pmks)
           @station_report = {"AP" => mac, "Stations" => @stations}
           puts "####################### Stations ###########################"
           puts @station_report.to_json
