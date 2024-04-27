@@ -822,14 +822,17 @@ def gather_station_info(interface_channels, connection_states, hostapd_procs, pm
   update_connections(connection_states,pmks)
   puts "CONNECTIONS:" + connection_states.to_s
 
+  @all_stations = {}
   # Add in all disconnected stations if we were already assocated
   # If something has reconnected, it will be over written by the code below
   connection_states.each { | mac, station |
+  	  puts "Checking: #{station}"
       if station["event"] == "disassoc"
+        puts "^^^^^^^^^^^ disassoc!!!"
         @all_stations[mac] = station
       end
   }
-  @all_stations = {}
+
   interface_channels.each { |wlan, channel|
     # get the stations for a given wlan
     @stations = get_stations(wlan, channel)
@@ -874,24 +877,24 @@ CONNECTION_LOG = "/tmp/connections.log"
 def update_connections(connections,pmks)
   begin
     File.open(CONNECTION_LOG).each do |line|
-      # puts "CONNECTION: #{line}"
+      puts "CONNECTION: #{line}"
       connection = JSON.parse(line)
       if connection.key? "mac"
         mac = connection["mac"].downcase
         puts "@@@@@@@@@@@@@@@@@@@@@@@@@@@CONN: #{mac}, #{connection}"
         connections[mac] = connection
-        connections[mac]["maxdev"] = pmks[conn["pmk"][maxdev]]
+        #connections[mac]["maxdev"] = pmks[conn["pmk"][maxdev]]
       end
     end
-    connections.each do |mac,conn|
-      conn["maxdev"] = pmks[conn["pmk"][maxdev]]
-    end
+    #connections.each do |mac,conn|
+    #  conn["maxdev"] = pmks[conn["pmk"][maxdev]]
+    #end
     # Clear the file
     puts "CLEAR Connection FILE"
     `rm #{CONNECTION_LOG}`
     # File.open(CONNECTION_LOG,'w') {|file| file.truncate(0) }
   rescue
-    puts "ERROR in processing connections.log file"
+    puts "ERROR in deleting connections.log file"
     # nothing else to do here
   end
   # Clear the file
