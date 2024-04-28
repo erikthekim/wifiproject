@@ -1,5 +1,6 @@
 #!/usr/bin/ruby
 require "ipaddr"
+require "date"
 #########################################################################################
 # Bugs to address / think about
 # jmb - in start() for processes, should it look to kill the process if already running?
@@ -38,7 +39,7 @@ end
 puts "Port: #{PORT}"
 
 # Default Sleep Time in seconds
-DEFAULT_SLEEP = 30
+DEFAULT_SLEEP = 5
 
 # require 'active_support/core_ext/object/blank'
 
@@ -820,19 +821,23 @@ end
 def gather_station_info(interface_channels, connection_states, hostapd_procs, pmks)
   # Get the current connection states from the connetion log
   update_connections(connection_states,pmks)
-  puts "CONNECTIONS:" + connection_states.to_s
 
   @all_stations = {}
   # Add in all disconnected stations if we were already assocated
   # If something has reconnected, it will be over written by the code below
+  @local_time = Time.new
   connection_states.each { | mac, station |
-  	  puts "Checking: #{station}"
+  	  # delete old entries
       if station["event"] == "disassoc"
-        puts "^^^^^^^^^^^ disassoc!!!"
-        @all_stations[mac] = station
+      	if (@local_time-station["local_time"]) > 5
+      		connection_states.delete(mac)
+      	else
+        	@all_stations[mac] = station
+      	end
+      else
+      	station["local_time"] = @local_time
       end
   }
-
   interface_channels.each { |wlan, channel|
     # get the stations for a given wlan
     @stations = get_stations(wlan, channel)
@@ -881,7 +886,7 @@ def update_connections(connections,pmks)
       connection = JSON.parse(line)
       if connection.key? "mac"
         mac = connection["mac"].downcase
-        puts "@@@@@@@@@@@@@@@@@@@@@@@@@@@CONN: #{mac}, #{connection}"
+        connection["local_time"]=Time.new
         connections[mac] = connection
         #connections[mac]["maxdev"] = pmks[conn["pmk"][maxdev]]
       end
