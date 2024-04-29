@@ -14,11 +14,12 @@ require "date"
 # April 18, 2024 - 1.1.20 - Added new confighash method
 # April 19, 2024 - 1.1.21 - change channels to integer
 # April 19, 2024 - 1.1.22 - Fix string to array conversion
+# April 28, 2024 - 1.1.23 - Add diaassoc event 
 ########################################################################################
 
 MAJOR = 1
 MINOR = 0
-REVISION = 22
+REVISION = 23
 
 # If the following files exists, their content will the the portal IP address.
 # and the port number
