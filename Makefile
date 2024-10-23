@@ -8,7 +8,7 @@ PKG_RELEASE:=1
 
 # Source settings (i.e. where to find the source codes)`
 # This is a custom variable, used below
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-main
+PKG_BUILD_DIR:=$(BUILD_DIR)/wifiproject-1.0
 PKG_MAINTAINER:=Erik Kim <erikkima13@gmail.com>
 PKG_LICENSE:=MIT
 HOME_DIR:=/home/erik
