@@ -55,7 +55,7 @@ define Package/wificlient/install
 		$(CP) $(PKG_BUILD_DIR)/files/hostapd.wpa_pmk_file $(1)/usr/bin/hostapd.wpa_pmk_file
 		$(INSTALL_DIR) $(1)/etc/init.d
 		echo "Final Step"
-		$(CP) $(PKG_BUILD_DIR)/statemachine.init $(1)/etc/init.d/
+		echo "$(CP) $(PKG_BUILD_DIR)/statemachine.init $(1)/etc/init.d/"
 endef
 
 # This command is always the last, it uses the definitions and variables we give above in order to get the job done
