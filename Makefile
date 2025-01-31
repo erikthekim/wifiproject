@@ -8,13 +8,13 @@ PKG_RELEASE:=1
 
 # Source settings (i.e. where to find the source codes)`
 # This is a custom variable, used below
-PKG_BUILD_DIR:=$(BUILD_DIR)/wifiproject-1.0
+PKG_BUILD_DIR:=$(BUILD_DIR)/wifiproject-1.0.2
 PKG_MAINTAINER:=Erik Kim <erikkima13@gmail.com>
 PKG_LICENSE:=MIT
 HOME_DIR:=/home/erik
-PKG_SOURCE:=1.0.tar.gz
+PKG_SOURCE:=1.0.2.tar.gz
 PKG_SOURCE_URL:=https://github.com/erikthekim/wifiproject/archive/refs/tags/
-PKG_HASH:=6bbf652c97b656c7d811fecac975cafa07330bb986944a049033484bdd83498f
+PKG_HASH:=4a1ff2f10beb01aa6486962de69226ff9a5ba626a2a83f0c816a8f6553b3e248
 #HOST_BUILD_DEPENDS:=ruby/host
 #PKG_BUILD_DEPENDS:=ruby/host
 #PKG_INSTALL:=1
