@@ -6,12 +6,13 @@ PKG_NAME:=wificlient
 PKG_VERSION:=1.0
 PKG_RELEASE:=1
 
-# Source settings (i.e. where to find the source codes)`
+# Source settings (i.e. where to find the source code)`
 # This is a custom variable, used below
 PKG_BUILD_DIR:=$(BUILD_DIR)/wifiproject-1.0
 PKG_MAINTAINER:=Erik Kim <erikkima13@gmail.com>
 PKG_LICENSE:=MIT
 HOME_DIR:=/home/erik
+#change HOME_DIR to your home directory
 PKG_SOURCE:=1.0.tar.gz
 PKG_SOURCE_URL:=https://github.com/erikthekim/wifiproject/archive/refs/tags/
 PKG_HASH:=6bbf652c97b656c7d811fecac975cafa07330bb986944a049033484bdd83498f
